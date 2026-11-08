@@ -1,0 +1,2734 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Gloub</title>
+<meta name="description" content="Gloub, petit esprit-chauve-souris, perce les ronces malades de ses ondes pour faire refleurir la forêt.">
+
+<!-- Application installable (PWA) -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2b2233">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gloub">
+<link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<style>
+  /* Polices embarquées (licence SIL OFL, voir fonts/) : elles marchent aussi hors ligne */
+  @font-face {
+    font-family: 'Mochiy Pop One'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url(fonts/mochiy-pop-one-latin-400-normal.woff2) format('woff2');
+  }
+  @font-face {
+    font-family: 'Nunito'; font-style: normal; font-weight: 600; font-display: swap;
+    src: url(fonts/nunito-latin-600-normal.woff2) format('woff2');
+  }
+  @font-face {
+    font-family: 'Nunito'; font-style: normal; font-weight: 800; font-display: swap;
+    src: url(fonts/nunito-latin-800-normal.woff2) format('woff2');
+  }
+
+  /* Direction artistique : comme le jeu, l'interface est « peinte et encrée ».
+     Papier crème, trait d'encre violet-noir, typographie ronde kawaii, accents des couleurs du jeu. */
+  :root {
+    --ink: #241a2e;
+    --paper: #f6eedd;
+    --paper-dark: #e6d9bf;
+    --leaf: #8fd96f;
+    --leaf-dark: #4f8a30;
+    --berry: #5b2a78;
+    --sap: #d8ff6a;
+    --rose: #f08ca2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #2b2233; font-family: 'Nunito', ui-rounded, 'Arial Rounded MT Bold', system-ui, -apple-system, sans-serif;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas { display: block; width: 100vw; height: 100vh; }
+
+  #overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: flex-end;
+    padding: max(24px, env(safe-area-inset-top)) max(6vw, 24px, env(safe-area-inset-right))
+             max(24px, env(safe-area-inset-bottom)) max(6vw, 24px, env(safe-area-inset-left));
+    color: var(--ink); text-align: center;
+    background: radial-gradient(ellipse at 30% 50%, rgba(36, 26, 46, 0.05), rgba(36, 26, 46, 0.55));
+  }
+  .panel { width: min(470px, 100%); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+  /* Titre : lettres crème cernées d'encre, ombre portée d'encre, petite pousse comme celle de Gloub */
+  .title-wrap { position: relative; }
+  #ov-title {
+    font-family: 'Mochiy Pop One', ui-rounded, 'SF Pro Rounded', 'Arial Rounded MT Bold', 'Varela Round', 'Nunito', system-ui, sans-serif; font-weight: 800;
+    font-size: clamp(54px, 11vw, 112px); line-height: 1; letter-spacing: 2px;
+    color: var(--paper);
+    -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill;
+    text-shadow: 0 6px 0 var(--ink), 0 14px 22px rgba(0, 0, 0, 0.35);
+  }
+  #ov-title.small { font-size: clamp(34px, 7vw, 64px); -webkit-text-stroke-width: 5px; }
+  .sprout { position: absolute; width: clamp(34px, 6vw, 54px); top: -0.42em; right: -0.18em; transform: rotate(14deg); }
+  #ov-title.small + .sprout { display: none; }
+  .subtitle {
+    margin-top: 10px; font-weight: 800; font-size: clamp(14px, 2.2vw, 18px);
+    color: var(--paper); text-shadow: 0 2px 0 var(--ink), 0 0 8px rgba(36, 26, 46, 0.6);
+  }
+
+  /* Carte en papier, cernée d'encre */
+  .card {
+    width: 100%; background: var(--paper);
+    border: 3px solid var(--ink); border-radius: 22px;
+    box-shadow: 0 7px 0 var(--ink), 0 18px 36px rgba(0, 0, 0, 0.3), inset 0 -6px 0 var(--paper-dark);
+    padding: 16px 18px 18px; transform: rotate(-1deg); text-align: left;
+  }
+  .story { font-size: 15px; line-height: 1.45; font-weight: 600; margin-bottom: 12px; text-align: center; }
+  .rules { list-style: none; display: grid; gap: 10px; }
+  .rules li { display: grid; grid-template-columns: 42px 1fr; gap: 10px; align-items: center; font-size: 15px; line-height: 1.35; font-weight: 600; }
+  .rules b { font-weight: 800; }
+  .icon { width: 42px; height: 42px; border-radius: 50%; background: #efe2c6; border: 2.5px solid var(--ink); display: grid; place-items: center; }
+  .icon svg { width: 30px; height: 30px; }
+  .stats { display: grid; grid-template-columns: 1fr auto; gap: 6px 18px; font-size: 17px; font-weight: 600; }
+  .stats b { font-weight: 800; text-align: right; }
+  .stats .best { color: var(--berry); }
+
+  /* Appel à l'action : bouton feuille qui sautille */
+  #ov-cta {
+    margin-top: 6px; padding: 10px 26px; border-radius: 999px;
+    background: var(--leaf); border: 3px solid var(--ink); box-shadow: 0 5px 0 var(--ink);
+    font-weight: 800; font-size: clamp(16px, 2.6vw, 20px); color: var(--ink);
+    animation: bob 1.4s ease-in-out infinite;
+  }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+  /* Installer l'application : petit bouton papier, n'apparaît que si le navigateur le propose */
+  #install {
+    font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--ink);
+    background: var(--paper); border: 2.5px solid var(--ink); border-radius: 999px; box-shadow: 0 3px 0 var(--ink);
+    padding: 6px 16px 6px 12px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  }
+  #install svg { width: 18px; height: 18px; }
+  #install:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+  .ios-hint {
+    font-size: 13px; font-weight: 800; color: var(--paper);
+    text-shadow: 0 2px 0 var(--ink), 0 0 8px rgba(36, 26, 46, 0.6);
+  }
+  .ios-hint svg { width: 15px; height: 15px; vertical-align: -2px; }
+  [hidden] { display: none !important; }
+
+  /* Écran étroit (téléphone en portrait) : titre en haut, carte en bas, Gloub visible au milieu */
+  @media (max-width: 760px), (max-aspect-ratio: 1/1) {
+    #overlay {
+      justify-content: center;
+      padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+               max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+    .panel { height: 100%; justify-content: space-between; }
+    .bottom { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+    .story { font-size: 14px; }
+    .rules li { font-size: 14px; }
+  }
+  @media (min-width: 761px) and (min-aspect-ratio: 1/1) {
+    .bottom { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; }
+  }
+  /* Téléphone en paysage (le format de l'application installée) : deux colonnes,
+     titre à gauche au-dessus de Gloub, carte compacte à droite, pour que tout tienne en hauteur */
+  @media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+    #overlay {
+      justify-content: stretch;
+      padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+               max(10px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    }
+    .panel { width: 100%; height: 100%; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .title-wrap { width: min-content; margin: 2px auto 0; }
+    #ov-title { font-size: clamp(40px, 12vh, 64px); -webkit-text-stroke-width: 5px; text-shadow: 0 4px 0 var(--ink), 0 10px 18px rgba(0, 0, 0, 0.35); }
+    #ov-title.small { font-size: clamp(28px, 8.5vh, 44px); -webkit-text-stroke-width: 4px; white-space: nowrap; }
+    .subtitle { font-size: 13px; margin-top: 6px; line-height: 1.3; }
+    .bottom { width: min(430px, 58%); height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+    .card { padding: 10px 14px 12px; border-radius: 18px; box-shadow: 0 5px 0 var(--ink), 0 12px 24px rgba(0, 0, 0, 0.3), inset 0 -5px 0 var(--paper-dark); }
+    .story { font-size: 12.5px; line-height: 1.35; margin-bottom: 8px; }
+    .rules { gap: 6px; }
+    .rules li { grid-template-columns: 30px 1fr; gap: 8px; font-size: 12.5px; line-height: 1.3; }
+    .icon { width: 30px; height: 30px; border-width: 2px; }
+    .icon svg { width: 22px; height: 22px; }
+    .stats { font-size: 14px; gap: 4px 16px; }
+    #ov-cta { margin-top: 2px; padding: 6px 20px; font-size: 16px; box-shadow: 0 4px 0 var(--ink); }
+    #install { font-size: 12.5px; padding: 4px 12px 4px 9px; }
+    #install svg { width: 15px; height: 15px; }
+    .ios-hint { font-size: 11.5px; }
+  }
+  @media (max-height: 340px) and (min-aspect-ratio: 1/1) {
+    .story { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="overlay">
+  <div class="panel">
+    <div class="title-wrap">
+      <h1 id="ov-title">Gloub</h1>
+      <svg class="sprout" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M20 38 C19 30 20 24 21 18" stroke="#241a2e" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <path d="M20 38 C19 30 20 24 21 18" stroke="#4f8a30" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M21 20 C10 20 5 12 7 5 C15 5 21 11 21 20 Z" fill="#8fd96f" stroke="#241a2e" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M21 18 C30 18 35 11 33 3 C25 4 20 10 21 18 Z" fill="#6cc070" stroke="#241a2e" stroke-width="2.5" stroke-linejoin="round"/>
+      </svg>
+      <div class="subtitle" id="ov-sub">le petit esprit qui fait refleurir la forêt</div>
+    </div>
+    <div class="bottom">
+      <div class="card" id="ov-text">
+        <p class="story">La forêt étouffe sous des ronces malades. Gloub les perce de ses ondes pour la faire refleurir.</p>
+        <ul class="rules">
+          <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
+            <path d="M15 6 L9 12 M15 6 L21 12 M15 6 V20" stroke="#241a2e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="15" cy="24" r="3.2" fill="#8fd96f" stroke="#241a2e" stroke-width="2"/>
+          </svg></span><span><b>Tape</b> : petit coup d'aile. <b>Maintiens</b> : Gloub monte de plus en plus vite.</span></li>
+          <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
+            <path d="M8 8 Q14 15 8 22" stroke="#4f8a30" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M14 6 Q21 15 14 24" stroke="#6cc070" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <path d="M20 4 Q28 15 20 26" stroke="#b6ff3b" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg></span><span>Ses <b>ondes</b> partent toutes seules : place-toi face aux ronces pour ouvrir un passage.</span></li>
+          <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
+            <path d="M16 7 C20 3 25 4 26 5 C24 9 20 10 16 9 Z" fill="#6cc070" stroke="#241a2e" stroke-width="1.6"/>
+            <g stroke="#241a2e" stroke-width="1.4" fill="#5b2a78">
+              <circle cx="11" cy="12" r="3.4"/><circle cx="17" cy="12" r="3.4"/>
+              <circle cx="8" cy="17" r="3.4"/><circle cx="14" cy="17" r="3.4"/><circle cx="20" cy="17" r="3.4"/>
+              <circle cx="11" cy="22" r="3.4"/><circle cx="17" cy="22" r="3.4"/>
+            </g>
+            <g fill="#e9d2ff"><circle cx="12" cy="11" r="1"/><circle cx="18" cy="11" r="1"/><circle cx="15" cy="16" r="1"/><circle cx="21" cy="16" r="1"/><circle cx="18" cy="21" r="1"/></g>
+          </svg></span><span>Crève les <b>bulbes</b> lumineux des ronces : ils libèrent des <b>mûres</b> qui renforcent tes ondes.</span></li>
+          <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
+            <path d="M3 14 L11 15" stroke="#241a2e" stroke-width="1.8" stroke-linecap="round"/>
+            <ellipse cx="20" cy="16" rx="7" ry="4.2" fill="#8fd62a" stroke="#241a2e" stroke-width="2" transform="rotate(18 20 16)"/>
+            <circle cx="12.5" cy="14" r="3.6" fill="#2b2430" stroke="#241a2e" stroke-width="1.6"/>
+            <circle cx="11.6" cy="13.4" r="1.3" fill="#ff2a40"/>
+            <path d="M15 11 Q17 4 22 6 M17 11 Q21 6 26 9" stroke="#241a2e" stroke-width="1.4" fill="rgba(200,210,190,0.6)"/>
+          </svg></span><span>Gare aux <b>moustiques</b> et aux <b>racines</b> : un choc te fait perdre une mûre, et le ventre vide, c'est la chute.</span></li>
+        </ul>
+      </div>
+      <div id="ov-cta">Tape pour t'envoler</div>
+      <button id="install" type="button" hidden><svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M10 3 V12 M6 8.5 L10 12.5 L14 8.5" stroke="#241a2e" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M4 14.5 V16.5 H16 V14.5" stroke="#4f8a30" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>Installer le jeu</button>
+      <div class="ios-hint" id="ios-hint" hidden>Pour l'installer : <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M10 2.5 V12 M6.5 6 L10 2.5 L13.5 6" stroke="#f6eedd" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6.5 9 H5 V17.5 H15 V9 H13.5" stroke="#f6eedd" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg> puis « Sur l'écran d'accueil »</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const ovTitle = document.getElementById('ov-title');
+  const ovText = document.getElementById('ov-text');
+  const ovCta = document.getElementById('ov-cta');
+
+  let W = 0, H = 0, DPR = 1;
+  // Zones sûres (encoche, coins arrondis, barre d'accueil) : le décor passe dessous, le HUD s'en écarte
+  const SAFE = { t: 0, r: 0, b: 0, l: 0 };
+  const safeProbe = document.createElement('div');
+  safeProbe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  document.body.appendChild(safeProbe);
+  function readSafe() {
+    const cs = getComputedStyle(safeProbe);
+    SAFE.t = parseFloat(cs.paddingTop) || 0; SAFE.r = parseFloat(cs.paddingRight) || 0;
+    SAFE.b = parseFloat(cs.paddingBottom) || 0; SAFE.l = parseFloat(cs.paddingLeft) || 0;
+  }
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    readSafe();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- Réglages ----------
+  // Contrôle : un tap = petit saut, maintenir = monter en continu, relâcher = redescendre.
+  // Des vitesses plafonnées rendent Gloub précis pour esquiver.
+  // Contrôle : un tap = petit saut ; maintenir = Gloub accélère progressivement vers le haut ; relâcher = il retombe.
+  const GRAVITY = 2300;                    // chute quand on ne touche pas l'écran (px/s²)
+  const TAP_VY = -340;                     // petit coup d'aile immédiat à chaque appui
+  const LIFT_MIN = 500, LIFT_MAX = 3000;   // accélération vers le haut en maintenant : douce au début, forte ensuite
+  const RISE_MIN = -360, RISE_MAX = -580;  // vitesse de montée maximale, qui grandit aussi en maintenant
+  const RAMP_TIME = 0.35;                  // temps de maintien pour atteindre la pleine puissance (s)
+  const MAX_FALL = 620;
+  const SPEED_BASE = 220;        // défilement de base
+  const PLAYER_X_RATIO = 0.22;
+  const PLAYER_R = 17;
+  const SHOOT_COOLDOWN = 0.13;
+  const SPIT_SPEED = 820;
+  const CELL_W = 26, ROW_H = 24, CELL_R = 19;   // cellules rondes qui se chevauchent
+  const GROUND_H = 22;
+  const BELLY_MAX = 100;
+  const BELLY_PER_PICKUP = 25;   // une goutte de pollution
+  const BELLY_PER_SAP = 0.6;     // coût d'un crachat de sève (une goutte ≈ 5 s de sève)
+  const HORIZON = 0.56;          // hauteur de l'horizon (fraction de l'écran)
+
+  // ---------- Palettes : monde malade → monde guéri ----------
+  // Palette aquarelle : même malade, le monde reste beau et mélancolique
+  const SICK = {
+    skyTop: [86, 74, 104], skyBot: [206, 166, 128],
+    far: [120, 104, 130], mid: [98, 100, 90], near: [74, 86, 68], ivy: [114, 82, 124],
+    ground1: [118, 100, 100], ground2: [92, 80, 84],
+    cloud: [214, 192, 196], cloudShade: [146, 124, 146],
+    treeLeaf: [112, 80, 124], bloom: 0,
+  };
+  const HEAL = {
+    skyTop: [66, 138, 204], skyBot: [212, 236, 228],
+    far: [146, 188, 204], mid: [92, 152, 108], near: [66, 136, 76], ivy: [78, 166, 94],
+    ground1: [124, 184, 102], ground2: [92, 156, 82],
+    cloud: [255, 255, 252], cloudShade: [172, 198, 226],
+    treeLeaf: [86, 162, 90], bloom: 1,
+  };
+  const OUTLINE = '#24584c';
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const mix = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
+  const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+  const col = k => mix(SICK[k], HEAL[k], health);
+  const pick = arr => arr[(Math.random() * arr.length) | 0];
+
+  let best = 0;
+  try { best = +localStorage.getItem('gloub-best') || 0; } catch (e) { /* stockage indisponible */ }
+
+  // ---------- État ----------
+  let state = 'menu';            // menu | play | over
+  let score = 0, distance = 0, health = 0, time = 0, lastTime = 0;
+  let traps = [], beams = [], megas = [], flashT = 0;
+  let bugs = [], swarms = [], swarmTimer = 4;   // moustiques de suie, et nuées annoncées   // pièges posés dans les passages (plante carnivore, épines)
+  let player, spits, cells, pickups, flowers, particles, texts, motes, layers, props, fore, clouds, winds, spirits;
+  let shootTimer = 0, columnTimer = 0, shakeT = 0, overTime = 0;
+
+  // ---------- Décor en parallaxe, peint en volume ----------
+  // Chaque élément est peint une fois en deux versions (monde malade / monde guéri),
+  // puis les deux images sont fondues selon la guérison.
+  const PERIOD = 1800;
+  const SHADOW = [24, 16, 30], SUNLIGHT = [255, 246, 222];
+
+  function rng(seed) {   // hasard reproductible : les deux versions ont exactement la même forme
+    let a = (seed * 4294967296) >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function blobsOn(g, list) {
+    g.beginPath();
+    for (const [x, y, r] of list) { g.moveTo(x + r, y); g.arc(x, y, r, 0, Math.PI * 2); }
+    g.fill();
+  }
+  // Volume façon gouache : masse sombre, ton moyen décalé vers le soleil (en haut à droite), reflet
+  function volumeBlobs(g, list, base, F) {
+    g.fillStyle = rgb(F(mix(base, SHADOW, 0.45)));
+    blobsOn(g, list);
+    g.fillStyle = rgb(F(base));
+    blobsOn(g, list.map(([x, y, r]) => [x + r * 0.15, y - r * 0.18, r * 0.8]));
+    g.fillStyle = rgb(F(mix(base, SUNLIGHT, 0.4)), 0.65);
+    blobsOn(g, list.map(([x, y, r]) => [x + r * 0.32, y - r * 0.38, r * 0.36]));
+  }
+  function makeSprite(w, h, paint) {
+    const pad = 30, cv = document.createElement('canvas');
+    cv.width = Math.ceil(w + pad * 2);
+    cv.height = Math.ceil(h + pad + 24);
+    const g = cv.getContext('2d');
+    const ox = cv.width / 2, oy = h + pad;
+    g.translate(ox, oy);                       // origine : pied de l'élément, au centre
+    paint(g);
+    return { cv, ox, oy };
+  }
+
+  // Arbre touffu : grands arbres du décor, arbres poussés sur les toits, petits arbres au sol
+  function paintTree(g, x, y, size, leaf, F, seed, bloom) {
+    const R = rng(seed);
+    const trunk = [86, 64, 60];
+    g.fillStyle = rgb(F(mix(trunk, SHADOW, 0.25)));
+    g.beginPath();
+    g.moveTo(x - size * 0.16, y + 2);
+    g.quadraticCurveTo(x - size * 0.05, y - size * 0.15, x - size * 0.05, y - size * 0.8);
+    g.lineTo(x + size * 0.06, y - size * 0.8);
+    g.quadraticCurveTo(x + size * 0.06, y - size * 0.15, x + size * 0.18, y + 2);
+    g.closePath(); g.fill();
+    g.fillStyle = rgb(F(mix(trunk, SUNLIGHT, 0.25)));            // côté éclairé du tronc
+    g.beginPath();
+    g.moveTo(x + size * 0.02, y);
+    g.quadraticCurveTo(x + size * 0.04, y - size * 0.4, x + size * 0.03, y - size * 0.8);
+    g.lineTo(x + size * 0.06, y - size * 0.8);
+    g.quadraticCurveTo(x + size * 0.06, y - size * 0.15, x + size * 0.18, y + 2);
+    g.closePath(); g.fill();
+    g.strokeStyle = rgb(F(mix(trunk, SHADOW, 0.25)));
+    g.lineWidth = Math.max(1.5, size * 0.04);
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(x, y - size * 0.55); g.quadraticCurveTo(x - size * 0.2, y - size * 0.68, x - size * 0.34, y - size * 0.82);
+    g.moveTo(x + size * 0.02, y - size * 0.62); g.quadraticCurveTo(x + size * 0.22, y - size * 0.74, x + size * 0.32, y - size * 0.9);
+    g.stroke();
+    const clusters = [];
+    const n = 7 + ((R() * 3) | 0);
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI + (i / (n - 1)) * Math.PI, d = size * (0.32 + R() * 0.2);
+      clusters.push([x + Math.cos(a) * d * 1.15, y - size * 0.92 + Math.sin(a) * d * 0.75, size * (0.2 + R() * 0.1)]);
+    }
+    clusters.push([x + size * 0.04, y - size * 1.08, size * 0.3]);
+    clusters.push([x - size * 0.1, y - size * 0.92, size * 0.28]);
+    volumeBlobs(g, clusters, leaf, F);
+    const dots = [];
+    for (let i = 0; i < 14; i++) {
+      const c = clusters[(R() * clusters.length) | 0];
+      dots.push([c[0] + c[2] * (0.1 + R() * 0.5), c[1] - c[2] * (0.2 + R() * 0.5), 1.2 + R() * 1.6]);
+    }
+    g.fillStyle = rgb(F(mix(leaf, SUNLIGHT, 0.55)), 0.7);
+    blobsOn(g, dots);
+    if (bloom > 0) {
+      const fl = [];
+      for (let i = 0; i < Math.round(16 * bloom); i++) {
+        const c = clusters[(R() * clusters.length) | 0];
+        fl.push([c[0] + (R() - 0.3) * c[2] * 1.2, c[1] + (R() - 0.6) * c[2] * 1.1, 1.6 + R() * 1.2]);
+      }
+      g.fillStyle = '#ffd3e4';
+      blobsOn(g, fl);
+    }
+  }
+
+  // Immeuble en ruine : façade éclairée, face latérale dans l'ombre, lierre en volume
+  function paintBuilding(g, it, P, F, bodyKey) {
+    const { w, h, n, roof } = it;
+    const body = P[bodyKey], top = -h, L = -w / 2;
+    const roofY = k => top + roof[k];
+    const sw = w * 0.14;
+    g.fillStyle = rgb(F(mix(body, SHADOW, 0.42)));
+    g.beginPath();
+    g.moveTo(L, 6); g.lineTo(L, roofY(0)); g.lineTo(L - sw, roofY(0) + sw * 0.6); g.lineTo(L - sw, 6);
+    g.closePath(); g.fill();
+    g.beginPath();
+    g.moveTo(L, 6);
+    for (let k = 0; k <= n; k++) g.lineTo(L + (w * k) / n, roofY(k));
+    g.lineTo(-L, 6);
+    g.closePath();
+    const gr = g.createLinearGradient(0, top, 0, 6);
+    gr.addColorStop(0, rgb(F(mix(body, SUNLIGHT, 0.2))));
+    gr.addColorStop(0.7, rgb(F(body)));
+    gr.addColorStop(1, rgb(F(mix(body, SHADOW, 0.35))));
+    g.fillStyle = gr;
+    g.fill();
+    g.fillStyle = rgb(F(mix(body, SUNLIGHT, 0.3)), 0.6);         // arête droite au soleil
+    g.fillRect(-L - w * 0.06, roofY(n), w * 0.06, 6 - roofY(n));
+    g.strokeStyle = rgb(F(mix(body, SUNLIGHT, 0.5)));             // cassures du toit éclairées
+    g.lineWidth = 1.8;
+    g.beginPath();
+    for (let k = 0; k < n; k++) {
+      if (roof[k + 1] >= roof[k]) { g.moveTo(L + (w * k) / n, roofY(k)); g.lineTo(L + (w * (k + 1)) / n, roofY(k + 1)); }
+    }
+    g.stroke();
+    const maxRoof = Math.max(...roof);
+    for (const [wx, wy] of it.wins) {
+      const fx = L + wx, fy = top + wy;
+      if (fy < top + maxRoof + 4) continue;
+      g.fillStyle = rgb(F(mix(body, SHADOW, 0.55)));
+      g.fillRect(fx, fy, 7, 9);
+      g.fillStyle = rgb(F(mix(body, SUNLIGHT, 0.35)));
+      g.fillRect(fx, fy + 9, 7, 1.5);
+    }
+    volumeBlobs(g, it.ivy.map(([ix, iy, r]) => [L + ix, -iy, r]), P.ivy, F);
+    if (it.roofTree) {
+      const k = Math.round(it.roofTree * n);
+      paintTree(g, L + (w * k) / n, roofY(k) + 4, h * 0.45, P.treeLeaf, F, it.seed, P.bloom);
+    }
+  }
+
+  // Buisson en touffes
+  function paintBush(g, it, P, F) {
+    const R = rng(it.seed), list = [];
+    const n = 5 + ((R() * 3) | 0);
+    for (let i = 0; i < n; i++) {
+      const u = i / (n - 1) - 0.5;
+      const r = it.h * (0.45 + R() * 0.3) * (1 - Math.abs(u) * 0.6);
+      list.push([u * it.w * 0.9, -r * 0.7, r]);
+    }
+    // Deuxième étage de touffes : le buisson forme un monticule, pas une rangée de boules
+    for (let i = 0; i < n - 1; i++) {
+      const [x0, y0, r0] = list[i], [x1, y1, r1] = list[i + 1];
+      list.push([(x0 + x1) / 2 + (R() - 0.5) * 6, Math.min(y0, y1) - (r0 + r1) * 0.3, (r0 + r1) * 0.38]);
+    }
+    volumeBlobs(g, list, P.near, F);
+    g.fillStyle = rgb(F(mix(P.near, SUNLIGHT, 0.55)), 0.7);
+    blobsOn(g, list.flatMap(([x, y, r]) => [[x + r * 0.3, y - r * 0.5, 1.6], [x + r * 0.5, y - r * 0.2, 1.3]]));
+    if (P.bloom > 0) {
+      const fl = [];
+      for (let i = 0; i < 10; i++) {
+        const c = list[(R() * list.length) | 0];
+        fl.push([c[0] + (R() - 0.5) * c[2] * 1.4, c[1] - R() * c[2] * 0.8, 2.2]);
+      }
+      g.fillStyle = '#ffd6e8'; blobsOn(g, fl.slice(0, 5));
+      g.fillStyle = '#fff1a8'; blobsOn(g, fl.slice(5));
+    }
+  }
+
+  function makeItem(kind, i, count, minH, maxH) {
+    const seed = Math.random();
+    const h = H * rand(minH, maxH);
+    const w = kind === 'tower' ? rand(55, 110) : kind === 'ruin' ? rand(90, 190) : kind === 'bigtree' ? h * 1.5 : rand(120, 240);
+    const n = 3 + ((Math.random() * 4) | 0);
+    const roof = [];
+    for (let k = 0; k <= n; k++) roof.push(Math.random() * h * (kind === 'tower' ? 0.12 : 0.25));
+    const wins = [], ivy = [];
+    if (kind === 'tower' || kind === 'ruin') {
+      for (let wy = h * 0.3; wy < h - 14; wy += 18)
+        for (let wx = 8; wx < w - 12; wx += 16)
+          if (Math.random() < 0.55) wins.push([wx, wy]);
+      // Lierre en grosses touffes serrées qui grimpent le long des arêtes
+      const clumps = 2 + ((Math.random() * 3) | 0);
+      for (let c = 0; c < clumps; c++) {
+        const cx = Math.random() < 0.5 ? rand(0, w * 0.25) : rand(w * 0.6, w);
+        const cy = Math.pow(Math.random(), 1.5) * h * 0.6;
+        const size = rand(10, 20), m = 4 + ((Math.random() * 4) | 0);
+        for (let k = 0; k < m; k++) ivy.push([clamp(cx + rand(-1, 1) * size, 0, w), Math.max(2, cy + rand(-1, 1.4) * size), size * rand(0.5, 0.85)]);
+      }
+      for (let x = 0; x < w; x += 12) if (Math.random() < 0.7) ivy.push([x, rand(0, 8), rand(7, 12)]);   // pied envahi
+      for (let k = 0; k < 2; k++) {                              // lierre qui déborde du toit et retombe
+        const ix = Math.random() * w, iy = h - roof[Math.round((ix / w) * n)] - rand(0, 6);
+        ivy.push([ix, iy, rand(7, 11)]);
+        for (let j = 1; j <= 3; j++) ivy.push([ix + rand(-2, 2), iy - j * 7, 5 - j]);
+      }
+    }
+    const roofTree = kind === 'ruin' && Math.random() < 0.4 ? rand(0.25, 0.75) : 0;
+    return { kind, x: (i / count) * PERIOD + rand(0, 50), w, h, n, roof, wins, ivy, roofTree, seed };
+  }
+  function bakeItem(it, L) {
+    const paint = P => g => {
+      const F = c => mix(c, P.skyBot, L.fog);
+      if (it.kind === 'bush') paintBush(g, it, P, F);
+      else if (it.kind === 'bigtree') paintTree(g, 0, 0, it.h * 0.85, P.treeLeaf, F, it.seed, P.bloom);
+      else paintBuilding(g, it, P, F, L.key);
+    };
+    const sw = it.kind === 'bigtree' ? it.h * 1.7 : it.w * 1.5;
+    const sh = it.kind === 'bigtree' ? it.h * 1.3 : it.h * (it.roofTree ? 1.6 : 1.15);
+    it.sick = makeSprite(sw, sh, paint(SICK));
+    it.heal = makeSprite(sw, sh, paint(HEAL));
+  }
+  function makeLayers() {
+    const defs = [
+      { key: 'far', kind: 'tower', speed: 0.12, fog: 0.4, count: 9, minH: 0.2, maxH: 0.42 },
+      { key: 'mid', kind: 'mid', speed: 0.28, fog: 0.2, count: 7, minH: 0.12, maxH: 0.28 },
+      { key: 'near', kind: 'bush', speed: 0.6, fog: 0.05, count: 7, minH: 0.05, maxH: 0.1 },
+    ];
+    return defs.map(d => ({
+      ...d,
+      items: Array.from({ length: d.count }, (_, i) => {
+        const kind = d.kind === 'mid' ? (Math.random() < 0.45 ? 'bigtree' : 'ruin') : d.kind;
+        const big = kind === 'bigtree';
+        const it = makeItem(kind, i, d.count, big ? 0.2 : d.minH, big ? 0.34 : d.maxH);
+        bakeItem(it, d);
+        return it;
+      }),
+    }));
+  }
+  function makeMotes() {
+    return Array.from({ length: 60 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: rand(1, 2.6), sp: rand(0.15, 0.5), ph: Math.random() * 6 }));
+  }
+
+  // ---------- Perspective : sol façon Mode 7 et horizon courbé ----------
+  // s = profondeur (0 = horizon, 1 = plan de jeu). Un objet à la profondeur s défile à la vitesse s.
+  const hy = () => H * HORIZON;
+  function arc(x) { const u = (x - W / 2) / (W / 2); return H * 0.09 * u * u; }
+  function groundY(s, x) { return hy() + (H - hy()) * s + arc(x) * (1 - s) * (1 - s); }
+  function screenX(X, s) { return W / 2 + (X - distance) * s; }
+  function blobs(list) { blobsOn(ctx, list); }
+
+  // Objets posés sur le sol, à différentes profondeurs
+  const PROP_TYPES = ['car', 'puddle', 'tree', 'post', 'rubble', 'tree', 'puddle'];
+  const PROP_COUNT = 16;
+  function newProp(onScreen) {
+    const s = 0.1 + Math.pow(Math.random(), 0.8) * 0.85;
+    const sx = onScreen ? rand(-60, W + 60) : W + 30 + rand(20, 200) * s;
+    return bakeProp({ s, X: distance + (sx - W / 2) / s, type: pick(PROP_TYPES), seed: Math.random() });
+  }
+  function makeProps() { return Array.from({ length: PROP_COUNT }, () => newProp(true)); }
+
+  // Hautes herbes au premier plan, plus rapides que le plan de jeu
+  const FORE_S = 1.4, FORE_COUNT = 8;
+  function makeFore() {
+    const span = (W + 200) / FORE_S;
+    return Array.from({ length: FORE_COUNT }, (_, i) => ({ X: distance + (-100 - W / 2) / FORE_S + (i / FORE_COUNT) * span + rand(0, 40), h: rand(28, 64), seed: Math.random() }));
+  }
+
+  // ---------- Esprit Ghibli : nuages, vent, grain de papier ----------
+  const CLOUD_PAD = 320;
+  function makeCloud(s, x) {
+    const far = s < 0.04;
+    const scale = far ? rand(0.55, 0.9) : rand(1, 1.5);
+    const w = 160 * scale;
+    const n = 6 + ((Math.random() * 4) | 0);
+    const puffs = [];
+    for (let i = 0; i < n; i++) {
+      const u = i / (n - 1) - 0.5;
+      const r = (26 + Math.random() * 18) * scale * (1 - Math.abs(u) * 0.9);
+      puffs.push([u * w, -r * rand(0.35, 0.8) - (0.5 - Math.abs(u)) * 30 * scale, r]);
+    }
+    return { s, x, y: H * (far ? rand(0.07, 0.22) : rand(0.14, 0.34)), puffs, w };
+  }
+  function makeClouds() {
+    const P = W + CLOUD_PAD * 2, list = [];
+    for (let i = 0; i < 4; i++) list.push(makeCloud(0.02, (i / 4) * P + rand(0, 80)));
+    for (let i = 0; i < 3; i++) list.push(makeCloud(0.06, (i / 3) * P + rand(0, 120)));
+    return list;
+  }
+  function newWind(anyX) {
+    return { x: anyX ? rand(0, W) : W + rand(20, 300), y: rand(H * 0.1, H * 0.8), len: rand(80, 180), amp: rand(4, 10), ph: Math.random() * 6, sp: rand(1.6, 2.4) };
+  }
+  function makeWinds() { return Array.from({ length: 6 }, () => newWind(true)); }
+
+  const grainPattern = (() => {
+    const g = document.createElement('canvas');
+    g.width = g.height = 160;
+    const gx = g.getContext('2d');
+    const img = gx.createImageData(160, 160);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = 110 + Math.random() * 40;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    gx.putImageData(img, 0, 0);
+    return ctx.createPattern(g, 'repeat');
+  })();
+
+  // ---------- Partie ----------
+  function reset() {
+    score = 0; distance = 0; health = 0;
+    player = { y: H * 0.45, vy: 0, tilt: 0, flap: 0, mouth: 0, belly: 0, alive: true, inv: 0, charge: 0, gulp: 0, chew: 0, wide: 0 };
+    beams = [];
+    traps = [];
+    bugs = []; swarms = []; swarmTimer = 4; megas = []; flashT = 0;
+    spits = []; cells = []; pickups = []; flowers = []; particles = []; texts = [];
+    motes = makeMotes(); layers = makeLayers(); props = makeProps(); fore = makeFore();
+    clouds = makeClouds(); winds = makeWinds(); spirits = [];
+    shootTimer = 0; columnTimer = 1.4; shakeT = 0;
+  }
+  reset();
+
+  function start() {
+    reset();
+    holdT = 0;
+    state = 'play';
+    overlay.style.display = 'none';
+    // Première goutte de pollution offerte pour découvrir la sève
+    pickups.push(makeBerry(W * 0.72, H * 0.45));
+  }
+
+  // Choc : Gloub recrache une goutte (une explosion qui dégage les ronces autour de lui).
+  // Le ventre vide, le choc est fatal.
+  function hurt(px) {
+    if (player.inv > 0 || state !== 'play') return;
+    if (sapLevel() === 0) { die(); return; }
+    player.belly = Math.max(0, player.belly - BELLY_PER_PICKUP);
+    player.inv = 1.4;
+    shakeT = 0.25;
+    for (const c of cells) {
+      if (c.alive && c.type !== 'root' && touches(c.x, c.y, px, player.y, 58)) {
+        c.alive = false;
+        burst(c.x, c.y, c.type === 'stone' ? '#a89e8e' : '#6e4f7a', 5, c.type === 'stone' ? 'dot' : 'leaf');
+      }
+    }
+    for (const b of bugs) if (b.alive && touches(b.x, b.y, px, player.y, 70)) killBug(b);
+    burst(px, player.y, '#b6ff3b', 16, 'dot');
+    floatText(px, player.y - 34, 'Beurk !', '#ff8fb8');
+  }
+
+  // ---------- Moustiques de suie : petites nuées qui foncent en zigzag vers Gloub ----------
+  // Une onde suffit. Vaincus, ils sont purifiés : un petit moucheron blanc s'envole.
+  function killBug(b) {
+    b.alive = false;
+    score += 10;
+    burst(b.x, b.y, '#3a3238', 6, 'dot');
+    particles.push({ x: b.x, y: b.y, vx: rand(-20, 20), vy: -45, life: 1.2, max: 1.2, color: '#ffffff', r: 2.6, rot: 0, vr: 0, shape: 'dot', nograv: true });
+  }
+  function updateBugs(dt, speed, px, diff) {
+    if (state === 'play' && distance > 800) {
+      swarmTimer -= dt;
+      if (swarmTimer <= 0) {   // une nuée est annoncée sur le bord droit avant d'entrer
+        swarms.push({ y: rand(70, H - GROUND_H - 70), warn: 0.9, n: 3 + ((Math.random() * (2 + diff * 3)) | 0) });
+        swarmTimer = rand(4.5, 7) - diff * 2.5;
+      }
+    }
+    for (const sw of swarms) {
+      sw.warn -= dt;
+      if (sw.warn <= 0) {
+        for (let i = 0; i < sw.n; i++) {
+          const y = sw.y + rand(-22, 22);
+          bugs.push({ x: W + 20 + i * 24, y, baseY: y, t: 0, phase: Math.random() * 6, alive: true });
+        }
+      }
+    }
+    swarms = swarms.filter(sw => sw.warn > 0);
+    for (const b of bugs) {
+      if (!b.alive) continue;
+      b.t += dt;
+      b.x -= (speed * 0.6 + 150) * dt;
+      if (state === 'play') b.baseY += clamp(player.y - b.baseY, -1, 1) * 60 * dt;   // ils visent lentement Gloub
+      b.y = b.baseY + Math.sin(b.t * 7 + b.phase) * 20;
+      if (Math.random() < 0.08) particles.push({ x: b.x + 14, y: b.y + 6, vx: rand(-10, 10), vy: rand(10, 40), life: 0.6, max: 0.6, color: '#b6ff3b', r: 2, rot: 0, vr: 0, shape: 'dot' });
+      for (const s of spits) {
+        if (s.life > 0 && touches(s.x, s.y, b.x, b.y, s.r + 11)) {
+          killBug(b);
+          if (--s.hitsLeft <= 0) s.life = 0;
+          break;
+        }
+      }
+      if (b.alive && state === 'play' && player.inv <= 0 && touches(b.x, b.y, px, player.y, 10 + PLAYER_R * 0.7)) {
+        b.alive = false;
+        hurt(px);
+      }
+    }
+    bugs = bugs.filter(b => b.alive && b.x > -40);
+  }
+
+  // Gloups : la proie est avalée
+  function eatPickup(p) {
+    p.alive = false;
+    const fruit = p.kind === 'fruit', px = W * PLAYER_X_RATIO;
+    const before = sapLevel();
+    player.belly = Math.min(BELLY_MAX, player.belly + BELLY_PER_PICKUP * (fruit ? 2 : 1));
+    if (sapLevel() > before) floatText(px + 40, player.y - 52, LEVELS[sapLevel()].name, '#fff1a8');
+    score += fruit ? 25 : 5;
+    player.gulp = 1;
+    player.chew = 0.55;   // il mâchouille, les yeux fermés de contentement
+    if (fruit) burst(px + 12, player.y + 6, '#ffd54a', 14, 'dot');
+    else if (p.kind === 'berry') { burst(px + 16, player.y + 8, '#5a1a78', 12, 'dot'); burst(px + 16, player.y + 8, '#d9a6ff', 6, 'dot'); }   // jus de mûre
+    else {   // quelques écailles d'ailes s'envolent
+      for (let i = 0; i < 6; i++) {
+        const life = rand(0.5, 0.9);
+        particles.push({ x: px + 16, y: player.y + 8, vx: rand(30, 130), vy: rand(-90, -10), life, max: life, color: pick(['#3a3440', '#4a4450', '#b6ff3b', '#ffe23a']), r: rand(1.8, 3), rot: rand(0, 6), vr: rand(-8, 8), shape: 'leaf' });
+      }
+    }
+    floatText(px, player.y - 30, fruit ? 'Fruit doré ! ×2' : 'Miam !', fruit ? '#ffe27a' : '#d9a6ff');
+  }
+
+  function die() {
+    if (state !== 'play') return;
+    state = 'over';
+    overTime = performance.now();
+    shakeT = 0.4;
+    player.alive = false;
+    const px = W * PLAYER_X_RATIO;
+    burst(px, player.y, '#5fd39a', 22, 'leaf');
+    burst(px, player.y, '#ffffff', 8, 'dot');
+    if (score > best) { best = score; try { localStorage.setItem('gloub-best', String(best)); } catch (e) { /* ignoré */ } }
+    ovTitle.textContent = 'Gloub est tombé…';
+    ovTitle.classList.add('small');
+    document.getElementById('ov-sub').textContent = 'mais la forêt se souvient de toi';
+    ovText.innerHTML = `<div class="stats">
+      <span>Score</span><b>${score}</b>
+      <span>Monde guéri</span><b>${Math.round(health * 100)} %</b>
+      <span class="best">Record</span><b class="best">${best}</b>
+    </div>`;
+    ovCta.textContent = 'Tape pour réessayer';
+    overlay.style.display = 'flex';
+  }
+
+  // ---------- Entrées ----------
+  let held = false, flapTimer = 0, holdT = 0;   // doigt (ou touche) maintenu ? holdT = puissance accumulée
+  function wingLeaves(n) {           // quelques feuilles lumineuses s'échappent des ailes
+    const px = W * PLAYER_X_RATIO;
+    for (let i = 0; i < n; i++) {
+      const life = rand(0.4, 0.7);
+      particles.push({ x: px - 12, y: player.y + rand(-6, 6), vx: rand(-140, -50), vy: rand(-10, 70), life, max: life, color: pick(['#c8f0a8', '#e8ffd0', '#9fdc8a']), r: rand(1.8, 2.8), rot: rand(0, 6), vr: rand(-6, 6), shape: 'leaf' });
+    }
+  }
+  function press() {
+    if (state === 'menu') { start(); return; }
+    if (state === 'over') { if (performance.now() - overTime > 500) start(); return; }
+    held = true;
+    player.vy = Math.min(player.vy, TAP_VY);   // réaction immédiate, sans casser une montée en cours
+    player.flap = 1;
+    flapTimer = 0.13;
+    wingLeaves(3);
+  }
+  function release() { held = false; }
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); if (!e.repeat) press(); }
+  });
+  window.addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp') release(); });
+  canvas.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
+  overlay.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  window.addEventListener('blur', release);
+
+  // ---------- Création des murs ----------
+  // Types : 'bramble' (ronce, 1 coup), 'stone' (rocher moussu, 4 coups), 'pod' (bulbe gorgé de pollution)
+  function makeCell(x, y, type, r) {
+    const hp = type === 'stone' ? 4 : 1;
+    const shape = [], lumps = [];
+    if (type === 'stone') for (let k = 0; k < 8; k++) shape.push(rand(0.78, 1.08));
+    else for (let k = 0; k < 2; k++) {
+      const a = Math.random() * Math.PI * 2;      // bosses pour une silhouette irrégulière
+      lumps.push([Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.42, r * rand(0.5, 0.62)]);
+    }
+    return { x, y, r, type, hp, maxHp: hp, alive: true, seed: Math.random(), shape, lumps, link: null, bend: rand(-10, 10) };
+  }
+  // Recharges : papillon de suie (1 goutte, vole de façon irrégulière) et fruit doré (2 gouttes, pend au bord du passage)
+  // Mûre (munition) : pousse sur les ronces au bord du passage (dir = 1 : pend du bord haut, -1 : pousse sur le bord bas),
+  // ou flotte librement sur une petite branche (dir = 0)
+  function makeBerry(x, y, dir = 0) {
+    return { kind: 'berry', x, y, dir, len: rand(18, 26), t: Math.random() * 10, seed: Math.random() * 6, px: x, py: y, alive: true };
+  }
+  function makeMoth(x, y) {
+    return { kind: 'moth', x, y, t: Math.random() * 10, seed: Math.random() * 6, px: x, py: y, alive: true };
+  }
+  function makeFruit(x, ay, len) {
+    return { kind: 'fruit', x, y: ay, len, t: Math.random() * 10, seed: Math.random() * 6, px: x, py: ay + len, alive: true };
+  }
+  function spawnWall() {
+    const diff = Math.min(distance / 15000, 1);
+    const firstCell = cells.length;
+    const top = -ROW_H * 0.5, bottom = H - GROUND_H + ROW_H * 0.5;
+    const rows = Math.ceil((bottom - top) / ROW_H);
+    let gapHalf = clamp(rand(64, 94) - diff * 18, 58, 95);       // demi-hauteur du passage
+    const gapY = rand(gapHalf + 40, H - GROUND_H - gapHalf - 30);
+    // Mur spécial (après les premiers murs) : racines incassables, plante carnivore ou épines rétractiles
+    const special = distance > 1500 && Math.random() < 0.35 + diff * 0.4 ? pick(ENABLED_SPECIALS) : null;
+    const trapWall = special === 'jaw' || special === 'thorn';
+    const blockGap = !trapWall && special !== 'root' && Math.random() < 0.3 + diff * 0.4;
+    const thickBase = rand(1.6, 2.4) + diff * 0.6;                // épaisseur moyenne, en cellules
+    if (trapWall) gapHalf = Math.max(gapHalf, 76);          // passage un peu plus haut quand il est piégé
+    if (special === 'root') gapHalf = Math.max(gapHalf, 80);   // les racines ne se cassent pas : passage généreux
+    const ph = Math.random() * 6, ph2 = Math.random() * 6;
+    const x0 = W + 60;
+    let prev = [];
+    for (let r = 0; r < rows; r++) {
+      const row = [];
+      const y = top + r * ROW_H + rand(-3, 3);
+      const sway = Math.sin(r * 0.45 + ph) * 14 + Math.sin(r * 1.3 + ph2) * 5;  // le mur ondule
+      const n = Math.max(1, Math.round(thickBase + Math.sin(r * 0.7 + ph2) * 0.8));
+      const edge = gapHalf + Math.sin(r * 2.1 + ph) * (special === 'root' ? 3 : 8);   // bords irréguliers
+      const dy = Math.abs(y - gapY);
+      const inGap = dy < edge, nearGap = dy < edge + ROW_H * 2.2;
+      for (let c = 0; c < n; c++) {
+        const x = x0 + sway + (c - (n - 1) / 2) * CELL_W + (r % 2 ? CELL_W / 2 : 0) + rand(-2, 2);
+        const rr = CELL_R * rand(0.88, 1.12);
+        let cell = null;
+        if (inGap) {
+          if (blockGap && c === 0 && dy < edge - 6) cell = makeCell(x, y, 'bramble', rr * 0.9);
+        } else {
+          let type;
+          if (nearGap) type = special === 'root' || Math.random() < 0.8 ? 'bramble' : 'stone';   // autour des racines : que des ronces
+          else if (special === 'root') type = 'root';          // seuls les bords du passage restent cassables
+          else { const p = Math.random(); type = p < 0.045 ? 'pod' : p < 0.5 ? 'stone' : 'bramble'; }
+          cell = makeCell(x, y, type, type === 'stone' ? rr * 1.08 : type === 'root' ? rr * 1.1 : rr);
+        }
+        if (!cell) continue;
+        // Chaque touffe de ronce (ou racine) est reliée à la plus proche de même nature, une rangée plus haut
+        if (cell.type !== 'stone') {
+          const kin = q => (cell.type === 'root' ? q.type === 'root' : q.type === 'bramble' || q.type === 'pod' || q.type === 'berrycell');
+          let best = null, bd = CELL_W * 1.6;
+          for (const p of prev) { const d = Math.abs(p.x - x); if (kin(p) && d < bd) { bd = d; best = p; } }
+          cell.link = best;
+        }
+        cells.push(cell);
+        row.push(cell);
+      }
+      prev = row;
+    }
+    if (trapWall) {
+      const rg = Math.round((gapY - top) / ROW_H);
+      const gx = x0 + Math.sin(rg * 0.45 + ph) * 14 + Math.sin(rg * 1.3 + ph2) * 5;
+      traps.push({ type: special, x: gx, w: Math.max(thickBase * CELL_W, 52), top: gapY - gapHalf, bot: gapY + gapHalf,
+                   gapHalf, t: rand(0, special === 'jaw' ? JAW_P : THORN_P) });
+    }
+    // Fruit doré, plus rare : pendu à une liane au bord haut du passage, tout près des ronces
+    if (false) {   // fruit doré retiré : la mûre est la seule recharge (code gardé pour plus tard)
+      const rg = Math.round((gapY - top) / ROW_H);
+      const gx = x0 + Math.sin(rg * 0.45 + ph) * 14 + Math.sin(rg * 1.3 + ph2) * 5;
+      pickups.push(makeFruit(gx, gapY - gapHalf + 4, rand(18, gapHalf * 0.55)));
+    }
+  }
+
+  // ---------- Effets ----------
+  function burst(x, y, color, n, shape) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = rand(60, 280);
+      const life = rand(0.4, 0.9);
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 40, life, max: life, color, r: rand(2, 4.5), rot: rand(0, 6), vr: rand(-8, 8), shape });
+    }
+  }
+  function floatText(x, y, txt, color) { texts.push({ x, y, txt, color, life: 1 }); }
+
+  function touches(ax, ay, bx, by, r) {
+    const dx = ax - bx, dy = ay - by;
+    return dx * dx + dy * dy < r * r;
+  }
+
+  // ---------- Crachat ----------
+  // Niveaux de puissance : un par goutte avalée. Chaque tir = [angle, décalage vertical, rayon].
+  // Que des tirs droits : pour viser, il faut se placer.
+  const LEVELS = [
+    { name: 'Salive', shots: [[0, 0, 4]], dmg: 1, pierce: 1, speed: 1, cool: 1 },
+    { name: 'Sève', shots: [[0, 0, 7]], dmg: 4, pierce: 2, speed: 1.05, cool: 1 },
+    { name: 'Sève ×2', shots: [[0, -7, 7.5], [0, 7, 7.5]], dmg: 4, pierce: 2, speed: 1.2, cool: 0.9 },
+    // Grande onde : une seule onde, trois fois plus haute, qui traverse 3 touffes
+    { name: 'Grande onde', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
+    // Méga-onde : la grande onde, plus toutes les ~1 s une onde géante (concentration puis libération)
+    { name: 'Méga-onde !', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
+  ];
+  const LEVEL_DRAIN = [0, 1, 1, 1.3, 2];   // le rayon se vide vite : de quoi tirer 2 ou 3 éclairs
+  const BEAM_CHARGE = 1.1, BEAM_HALF = 6;
+  function sapLevel() { return player.belly <= 0 ? 0 : Math.min(4, Math.ceil(player.belly / BELLY_PER_PICKUP - 1e-6)); }
+
+  // Méga-onde : Gloub concentre la sève puis libère une onde géante qui balaie l'écran
+  // (tout ce qui est cassable sur sa hauteur ; elle passe à travers les racines sans les briser)
+  function fireBeam(px) {
+    megas.push({ x: px + PLAYER_R, y: player.y, half: 85, t: 0 });
+    shakeT = Math.max(shakeT, 0.3);
+    flashT = 0.25;
+    player.gulp = 1;
+  }
+  function updateMegas(dt) {
+    for (const m of megas) {
+      const prev = m.x;
+      m.x += 950 * dt; m.t += dt;
+      for (const c of cells) {
+        if (c.alive && c.type !== 'root' && c.x > prev - 20 && c.x <= m.x && Math.abs(c.y - m.y) < m.half + c.r * 0.5) damageCell(c, { kind: 'sap', dmg: 99, x: c.x, y: c.y });
+      }
+      for (const b of bugs) if (b.alive && b.x > prev - 20 && b.x <= m.x && Math.abs(b.y - m.y) < m.half) killBug(b);
+      if (Math.random() < 0.8) particles.push({ x: m.x - rand(0, 30), y: m.y + rand(-m.half, m.half), vx: rand(-80, 40), vy: rand(-40, 40), life: 0.5, max: 0.5, color: pick(['#e8ff8a', '#ffffff', '#ffc6dd']), r: rand(2, 3.5), rot: rand(0, 6), vr: rand(-6, 6), shape: pick(['dot', 'leaf']), nograv: true });
+    }
+    megas = megas.filter(m => m.x < W + 200);
+    flashT = Math.max(0, flashT - dt);
+  }
+
+  function spit(px) {
+    const a = player.tilt * 0.6;
+    const mx = px + Math.cos(a) * PLAYER_R, my = player.y + Math.sin(a) * PLAYER_R + 1;
+    const lvl = sapLevel(), L = LEVELS[lvl];
+    for (const [ang, dy, r] of L.shots) {
+      const v = SPIT_SPEED * L.speed;
+      spits.push({ x: mx, y: my + dy, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, kind: lvl ? 'sap' : 'saliva', level: lvl,
+                   r, dmg: L.dmg, hitsLeft: L.pierce, hit: lvl ? new Set() : null, life: 1.6, spin: Math.random() * 6 });
+    }
+    if (lvl) player.belly = Math.max(0, player.belly - BELLY_PER_SAP * LEVEL_DRAIN[lvl]);
+    if (!player.chew) player.mouth = 1;
+    shootTimer = SHOOT_COOLDOWN * L.cool;
+  }
+
+  function damageCell(t, s) {
+    t.hp -= s.dmg;
+    burst(s.x, s.y, s.kind === 'sap' ? '#e8ff8a' : t.type === 'stone' ? '#c9bfae' : '#d2f0ff', 3, 'dot');
+    if (t.hp > 0) return;
+    t.alive = false;
+    const cx = t.x, cy = t.y;
+    if (t.type === 'berrycell') {   // la mûre est libérée et file vers la bouche de Gloub
+      const b = makeBerry(cx, cy);
+      b.eating = 0; b.sx = cx; b.sy = cy;
+      pickups.push(b);
+      score += 15;
+      burst(cx, cy, '#d9a6ff', 10, 'dot');
+      floatText(cx, cy - 24, 'Mûre !', '#d9a6ff');
+    }
+    if (t.type === 'bramble' || t.type === 'berrycell') {
+      if (s.kind === 'sap') {
+        // Purifiée : une fleur saine prend sa place
+        score += 25; health = Math.min(1, health + 0.035);
+        flowers.push({ x: cx, y: cy, t: 0, seed: Math.random(), color: pick(['#ff8fb8', '#ffd166', '#ffffff', '#c9a0ff']) });
+        for (let i = 0; i < 2; i++) {
+          const life = rand(3, 5);
+          spirits.push({ x: cx + rand(-8, 8), y: cy, vx: rand(-60, -20), vy: rand(-40, -15), life, max: life, ph: Math.random() * 6 });
+        }
+        burst(cx, cy, '#7be07b', 10, 'leaf');
+        burst(cx, cy, '#ffc6dd', 6, 'dot');
+      } else {
+        // Simplement arrachée
+        score += 10; health = Math.min(1, health + 0.004);
+        burst(cx, cy, '#6e4f7a', 10, 'leaf');
+      }
+    } else if (t.type === 'stone') {
+      score += 15;
+      burst(cx, cy, '#a89e8e', 12, 'dot');
+      burst(cx, cy, '#7d9a55', 5, 'leaf');
+    } else if (t.type === 'pod') {
+      score += 5;
+      pickups.push(makeBerry(cx, cy));   // le bulbe était un fruit enfoui : une mûre s'en libère
+      burst(cx, cy, '#b6ff3b', 12, 'dot');
+    }
+  }
+
+  // ---------- Mise à jour ----------
+  function update(dt) {
+    time += dt;
+    const diff = Math.min(distance / 15000, 1);
+    const speed = SPEED_BASE + diff * 140;
+    const px = W * PLAYER_X_RATIO;
+
+    for (const m of motes) {
+      m.x -= speed * m.sp * dt;
+      m.y += Math.sin(time * 1.5 + m.ph) * 12 * dt;
+      if (m.x < -5) { m.x = W + 5; m.y = Math.random() * H; }
+    }
+
+    // Recyclage des objets du décor
+    props = props.filter(p => screenX(p.X, p.s) > -150 * p.s - 40);
+    while (props.length < PROP_COUNT) props.push(newProp(false));
+    props.sort((a, b) => a.s - b.s);
+    const foreSpan = (W + 200) / FORE_S;
+    for (const f of fore) {
+      if (screenX(f.X, FORE_S) < -100) { f.X += foreSpan; f.h = rand(28, 64); f.seed = Math.random(); }
+    }
+
+    // Vent et petits esprits
+    for (const w of winds) {
+      w.x -= (speed * w.sp + 120) * dt;
+      if (w.x + w.len < -20) Object.assign(w, newWind(false));
+    }
+    for (const sp of spirits) {
+      sp.x += sp.vx * dt; sp.y += sp.vy * dt;
+      sp.vy = Math.max(sp.vy - 4 * dt, -60);
+      sp.life -= dt;
+    }
+    spirits = spirits.filter(sp => sp.life > 0);
+
+    if (state === 'menu') {
+      distance += 60 * dt;
+      // Gloub flotte dans l'espace libre entre le titre et la carte (utile sur téléphone, où la carte est haute)
+      let my = H * 0.45;
+      const tw = document.querySelector('.title-wrap'), cd = document.querySelector('.card');
+      if (tw && cd) {
+        const tr = tw.getBoundingClientRect(), cr = cd.getBoundingClientRect(), a = tr.bottom, b = cr.top;
+        if (cr.left > tr.right) my = Math.min(H * 0.62, (a + H * 0.9) / 2);   // paysage : titre à gauche, Gloub dessous
+        else if (b - a > 70 && b < H * 0.9) my = (a + b) / 2;
+      }
+      player.y = my + Math.sin(time * 3) * 10;
+      player.flap = (Math.sin(time * 12) + 1) / 2;
+    }
+
+    if (state === 'play') {
+      distance += speed * dt;
+      // En maintenant, la puissance monte en douceur ; en relâchant, elle retombe deux fois plus vite
+      // (des taps rapides gardent donc un peu d'élan)
+      holdT = held ? Math.min(RAMP_TIME, holdT + dt) : Math.max(0, holdT - dt * 2);
+      if (held) {
+        const r = holdT / RAMP_TIME, e = r * r * (3 - 2 * r);
+        player.vy -= (LIFT_MIN + (LIFT_MAX - LIFT_MIN) * e) * dt;
+        player.vy = Math.max(player.vy, RISE_MIN + (RISE_MAX - RISE_MIN) * e);
+      } else {
+        player.vy += GRAVITY * dt;
+      }
+      player.vy = Math.min(player.vy, MAX_FALL);
+      player.y += player.vy * dt;
+      player.tilt = clamp(player.vy / 600, -0.5, 0.8);
+      player.flap = Math.max(0, player.flap - dt * 7);
+      if (held && (flapTimer -= dt) <= 0) { player.flap = 1; flapTimer = 0.16 - 0.07 * (holdT / RAMP_TIME); wingLeaves(1); }   // les ailes battent de plus en plus vite
+      player.mouth = Math.max(0, player.mouth - dt * 10);
+      player.gulp = Math.max(0, player.gulp - dt * 2.2);
+      if (!pickups.some(q => q.eating !== undefined)) player.wide = Math.max(0, player.wide - dt * 6);
+      player.chew = Math.max(0, player.chew - dt);
+      if (player.chew > 0) player.mouth = Math.abs(Math.sin(player.chew * Math.PI * 5.5));   // crounch crounch
+      if (player.y - PLAYER_R < 0) { player.y = PLAYER_R; player.vy = 0; }
+      player.inv = Math.max(0, player.inv - dt);
+      if (player.y + PLAYER_R * 0.8 > H - GROUND_H) {   // les ronces du sol : choc, puis rebond
+        hurt(px);
+        if (state === 'play') { player.y = H - GROUND_H - PLAYER_R * 0.8; player.vy = RISE_MIN - 80; }
+      }
+
+      // Pièges : collision selon leur état
+      for (const t of traps) {
+        const hw = t.type === 'jaw' ? t.w / 2 + 6 : 18;
+        if (Math.abs(px - t.x) > hw + PLAYER_R * 0.5 || player.inv > 0) continue;
+        if (t.type === 'jaw') {
+          const { c } = jawState(t);
+          if (c > 0.25) {
+            const L = t.gapHalf + 6;
+            if (player.y - PLAYER_R * 0.6 < t.top + c * L || player.y + PLAYER_R * 0.6 > t.bot - c * L) hurt(px);
+          }
+        } else {
+          const { ext, side } = thornState(t);
+          if (ext > 6 && (side > 0 ? player.y - PLAYER_R * 0.6 < t.top + ext : player.y + PLAYER_R * 0.6 > t.bot - ext)) hurt(px);
+        }
+      }
+
+      shootTimer -= dt;
+      if (shootTimer <= 0) spit(px);
+      if (sapLevel() === 4) {   // le rayon se charge, puis part tout droit
+        player.charge += dt;
+        if (player.charge >= BEAM_CHARGE) { fireBeam(px); player.charge = 0; }
+      } else player.charge = 0;
+
+      columnTimer -= dt;
+      if (columnTimer <= 0) { spawnWall(); columnTimer = rand(1.7, 2.4) - diff * 0.4; }
+    }
+
+    const ws = state === 'play' ? speed : 0;
+
+    for (const c of cells) c.x -= ws * dt;
+    for (const p of pickups) {
+      p.x -= ws * dt; p.t += dt;
+      if (p.eating !== undefined) {   // aspiré vers la bouche de Gloub, en tournoyant
+        p.eating += dt / 0.38;
+        const e = Math.min(1, p.eating), k = e * e * (3 - 2 * e);
+        const mx = W * PLAYER_X_RATIO + 12, my = player.y + 8;
+        p.px = p.sx + (mx - p.sx) * k;
+        p.py = p.sy + (my - p.sy) * k - Math.sin(e * Math.PI) * 10;
+        player.mouth = 1;
+        player.wide = Math.min(1, player.wide + dt * 8);   // grande ouverture pour gober
+        if (p.eating >= 1) eatPickup(p);
+        continue;
+      }
+      if (p.kind === 'moth') {   // vol erratique de papillon de nuit
+        p.px = p.x + Math.sin(p.t * 1.7 + p.seed) * 18 + Math.sin(p.t * 4.1) * 6;
+        p.py = p.y + Math.sin(p.t * 2.3 + p.seed * 3) * 24 + Math.sin(p.t * 5.3) * 7;
+        if (Math.random() < 0.12) particles.push({ x: p.px, y: p.py + 14, vx: rand(-15, 15), vy: rand(20, 60), life: 0.7, max: 0.7, color: '#b6ff3b', r: 2, rot: 0, vr: 0, shape: 'dot' });   // bave radioactive
+      } else if (p.kind === 'berry') {
+        if (p.dir) {   // sur sa tige, elle se balance doucement
+          const a = Math.sin(p.t * 2.5 + p.seed) * 0.25;
+          p.px = p.x + Math.sin(a) * p.len * p.dir;
+          p.py = p.y + Math.cos(a) * p.len * p.dir;
+        } else { p.px = p.x; p.py = p.y + Math.sin(p.t * 2.2 + p.seed) * 6; }   // flotte sur sa branche
+      } else {                   // le fruit se balance au bout de sa liane
+        const a = Math.sin(p.t * 2 + p.seed) * 0.35;
+        p.px = p.x + Math.sin(a) * p.len;
+        p.py = p.y + Math.cos(a) * p.len;
+      }
+    }
+    for (const f of flowers) { f.x -= ws * dt; f.t += dt; }
+
+    // Crachats
+    for (const s of spits) {
+      s.x += s.vx * dt; s.y += s.vy * dt; s.spin += dt * 8; s.life -= dt;
+      if (s.kind === 'sap' && Math.random() < 0.5) {
+        particles.push({ x: s.x - s.r, y: s.y + rand(-2, 2), vx: -40, vy: rand(-20, 20), life: 0.3, max: 0.3, color: '#d8ff6a', r: 2.5, rot: 0, vr: 0, shape: 'dot', nograv: true });
+      }
+    }
+    for (const t of traps) t.x -= ws * dt, t.t += dt;
+    updateBugs(dt, speed, px, diff);
+    updateMegas(dt);
+    for (const b of beams) b.life -= dt;
+    beams = beams.filter(b => b.life > 0);
+    traps = traps.filter(t => t.x + t.w > -40);
+
+    for (const s of spits) {
+      if (s.life <= 0) continue;
+      for (const t of cells) {
+        if (!t.alive || t.x - t.r > W) continue;
+        if (s.hit && s.hit.has(t)) continue;
+        if (touches(t.x, t.y, s.x, s.y, t.r * 0.85 + s.r)) {
+          if (t.type === 'root') { burst(s.x, s.y, '#c9a27e', 3, 'dot'); s.life = 0; break; }   // incassable : le crachat s'écrase
+          damageCell(t, s);
+          if (s.hit) s.hit.add(t);
+          if (--s.hitsLeft <= 0) { s.life = 0; break; }
+        }
+      }
+    }
+
+    if (state === 'play') {
+      // Collision avec les murs
+      for (const t of cells) {
+        if (player.inv <= 0 && t.alive && touches(t.x, t.y, px, player.y, t.r * 0.78 + PLAYER_R * 0.7)) { hurt(px); break; }
+      }
+      // Gober la pollution
+      for (const p of pickups) {
+        if (!p.alive) continue;
+        if (p.eating !== undefined) continue;
+        const dx = p.px - px, dy = p.py - player.y;
+        // À portée de bouche : la proie est aspirée (un peu de marge pour que ce soit agréable)
+        if (dx > -20 && dx * dx + dy * dy < (PLAYER_R + (p.kind === 'fruit' ? 14 : 12) + 45) ** 2) {
+          p.eating = 0; p.sx = p.px; p.sy = p.py;
+          player.mouth = 1;
+        }
+      }
+    }
+
+    // Nettoyage
+    cells = cells.filter(c => c.alive && c.x + c.r > -30);
+    pickups = pickups.filter(p => p.alive && p.x > -50);
+    flowers = flowers.filter(f => f.x > -30);
+    spits = spits.filter(s => s.life > 0 && s.x < W + 20 && s.y > -30 && s.y < H + 30);
+
+    for (const p of particles) {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      if (!p.nograv) p.vy += (p.shape === 'leaf' ? 220 : 480) * dt;
+      if (p.shape === 'leaf') p.vx *= 0.98;
+      p.rot += p.vr * dt; p.life -= dt;
+    }
+    particles = particles.filter(p => p.life > 0);
+    for (const t of texts) { t.y -= 40 * dt; t.life -= dt; }
+    texts = texts.filter(t => t.life > 0);
+
+    if (shakeT > 0) shakeT -= dt;
+  }
+
+  // ---------- Rendu ----------
+  function drawSky() {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, rgb(col('skyTop')));
+    g.addColorStop(1, rgb(col('skyBot')));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // Soleil et halo
+    const sx = W * 0.78, sy = H * 0.2, sr = Math.min(W, H) * 0.08;
+    const halo = ctx.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * 4);
+    halo.addColorStop(0, rgb([255, 236, 190], 0.35 + health * 0.25));
+    halo.addColorStop(1, rgb([255, 236, 190], 0));
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = rgb(mix([236, 200, 150], [255, 246, 214], health), 0.55 + health * 0.4);
+    ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+
+    // Rayons de lumière quand le monde guérit
+    if (health > 0.2) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = rgb([255, 240, 200], (health - 0.2) * 0.09);
+      const L = Math.max(W, H) * 1.6;
+      for (let i = 0; i < 6; i++) {
+        const ang = 1.75 + i * 0.22 + Math.sin(time * 0.25 + i * 1.3) * 0.04;
+        const half = 0.035 + (i % 2) * 0.02;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + Math.cos(ang - half) * L, sy + Math.sin(ang - half) * L);
+        ctx.lineTo(sx + Math.cos(ang + half) * L, sy + Math.sin(ang + half) * L);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    drawClouds();
+  }
+
+  // Cumulus peints : base plate, ombre bleutée, rehauts blancs
+  function drawCloud(c, x) {
+    const base = c.y;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x - c.w, base - 400, c.w * 2, 406); ctx.clip();
+    ctx.fillStyle = rgb(col('cloudShade'));
+    blobs(c.puffs.map(([dx, dy, r]) => [x + dx, base + dy + r * 0.22, r]));
+    ctx.fillStyle = rgb(col('cloud'));
+    blobs(c.puffs.map(([dx, dy, r]) => [x + dx - r * 0.06, base + dy - r * 0.05, r * 0.9]));
+    ctx.fillStyle = rgb([255, 255, 255], 0.35 + health * 0.3);
+    blobs(c.puffs.map(([dx, dy, r]) => [x + dx - r * 0.25, base + dy - r * 0.35, r * 0.45]));
+    ctx.restore();
+  }
+  function drawClouds() {
+    const P = W + CLOUD_PAD * 2;
+    for (const c of clouds) {
+      const x = (((c.x - distance * c.s - time * 6) % P) + P) % P - CLOUD_PAD;
+      drawCloud(c, x);
+    }
+  }
+
+  // Collines lointaines posées sur l'horizon courbé
+  // Deux lignes de collines : dégradé de volume et versants au soleil éclairés
+  function drawHills() {
+    const fogC = col('skyBot');
+    const ridges = [
+      { s: 0.015, amp: 0.085, freq: 0.0035, key: 'far', fog: 0.62, ph: 0 },
+      { s: 0.035, amp: 0.05, freq: 0.006, key: 'mid', fog: 0.5, ph: 2.1 },
+    ];
+    for (const r of ridges) {
+      const off = distance * r.s, pts = [];
+      let minY = Infinity;
+      // les points de la crête défilent avec elle (sinon la crête ondule sur place)
+      for (let x = -16 - (off % 8); x <= W + 16; x += 8) {
+        const t = (x + off) * r.freq + r.ph;
+        const h = H * r.amp * Math.max(0.12, 0.6 + 0.45 * Math.sin(t) + 0.25 * Math.sin(t * 2.7 + 1.3) + 0.1 * Math.sin(t * 6.1));
+        const y = hy() + arc(x) - h;
+        pts.push([x, y]);
+        if (y < minY) minY = y;
+      }
+      const body = mix(col(r.key), fogC, r.fog);
+      const gr = ctx.createLinearGradient(0, minY, 0, hy() + H * 0.06);
+      gr.addColorStop(0, rgb(mix(body, SUNLIGHT, 0.15)));
+      gr.addColorStop(1, rgb(mix(body, fogC, 0.55)));
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.moveTo(-16, H);
+      for (const [x, y] of pts) ctx.lineTo(x, y);
+      ctx.lineTo(W + 16, H);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = rgb(mix(body, SUNLIGHT, 0.5), 0.8);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < pts.length - 1; i++) {
+        if (pts[i + 1][1] > pts[i][1]) { ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); }
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Sol en perspective : des bandes qui filent vers le point de fuite
+  const DEPTHS = [0, 0.015, 0.035, 0.07, 0.12, 0.2, 0.32, 0.48, 0.7, 1];
+  function drawGroundPlane() {
+    const h0 = hy();
+    ctx.fillStyle = rgb(col('ground2'));
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W + 8; x += 8) ctx.lineTo(x, h0 + arc(x));
+    ctx.lineTo(W, H);
+    ctx.closePath(); ctx.fill();
+
+    const sp = 70, range = W * 6;
+    const first = Math.floor((distance - range) / sp), last = Math.ceil((distance + range) / sp);
+    ctx.fillStyle = rgb(col('ground1'));
+    ctx.beginPath();
+    for (let n = first; n < last; n++) {
+      if (n & 1) continue;
+      const xb0 = W / 2 + (n * sp - distance), xb1 = xb0 + sp;
+      for (let k = 0; k < DEPTHS.length; k++) {
+        const s = DEPTHS[k], x = W / 2 + (xb0 - W / 2) * s;
+        if (k === 0) ctx.moveTo(x, groundY(s, x)); else ctx.lineTo(x, groundY(s, x));
+      }
+      for (let k = DEPTHS.length - 1; k >= 0; k--) {
+        const s = DEPTHS[k], x = W / 2 + (xb1 - W / 2) * s;
+        ctx.lineTo(x, groundY(s, x));
+      }
+      ctx.closePath();
+    }
+    ctx.fill();
+
+    // Sillons fixes en profondeur, qui épousent la courbure
+    ctx.strokeStyle = 'rgba(0,0,0,0.09)';
+    ctx.lineWidth = 2;
+    for (const s of [0.06, 0.13, 0.24, 0.4, 0.62, 0.9]) {
+      ctx.beginPath();
+      for (let x = 0; x <= W + 16; x += 16) { if (x === 0) ctx.moveTo(x, groundY(s, x)); else ctx.lineTo(x, groundY(s, x)); }
+      ctx.stroke();
+    }
+
+    // Brume d'horizon
+    const fogC = col('skyBot');
+    const fg = ctx.createLinearGradient(0, h0, 0, h0 + (H - h0) * 0.5);
+    fg.addColorStop(0, rgb(fogC, 0.95));
+    fg.addColorStop(1, rgb(fogC, 0));
+    ctx.fillStyle = fg;
+    ctx.fillRect(0, h0, W, H - h0);
+  }
+
+  // Les éléments pré-peints sont posés sur le sol et suivent la courbure de la planète
+  function drawLayer(L) {
+    const scroll = (distance * L.speed) % PERIOD;
+    for (let rep = -1; rep <= Math.ceil(W / PERIOD) + 1; rep++) {
+      for (const it of L.items) {
+        const x = it.x + rep * PERIOD - scroll;
+        if (x > W + 120 || x + it.w < -120) continue;
+        // Simple copie d'image, sans rotation ni arrondi au pixel (l'arrondi faisait avancer les plans lointains par à-coups)
+        const xc = x + it.w / 2, y = groundY(L.speed, xc);
+        if (health < 0.99) ctx.drawImage(it.sick.cv, xc - it.sick.ox, y - it.sick.oy);
+        if (health > 0.01) {
+          ctx.globalAlpha = health;
+          ctx.drawImage(it.heal.cv, xc - it.heal.ox, y - it.heal.oy);
+          ctx.globalAlpha = 1;
+        }
+      }
+    }
+  }
+
+  // Objets du sol : peints une fois à leur taille (malade / guéri), puis simplement recopiés
+  function paintProp(g, p, P) {
+    const k = p.s * 1.5, fog = (1 - p.s) * 0.55;
+    const FA = c => mix(c, P.skyBot, fog);
+    const F = c => rgb(FA(c));
+    const ivy = P.ivy;
+    g.scale(k, k);
+    switch (p.type) {
+      case 'car': { // épave rouillée, en volume
+        const rust = [116, 74, 54];
+        g.fillStyle = 'rgba(20,14,26,0.3)';
+        g.beginPath(); g.ellipse(-4, 0, 38, 4, 0, 0, Math.PI * 2); g.fill();
+        const gb = g.createLinearGradient(0, -20, 0, -6);
+        gb.addColorStop(0, F(mix(rust, SUNLIGHT, 0.25)));
+        gb.addColorStop(1, F(mix(rust, SHADOW, 0.35)));
+        g.fillStyle = gb;
+        g.fillRect(-34, -20, 68, 14);
+        g.fillStyle = F(mix(rust, SUNLIGHT, 0.1));
+        g.fillRect(-18, -32, 34, 13);
+        g.fillStyle = F(mix(rust, SUNLIGHT, 0.45));
+        g.fillRect(-18, -32, 34, 2.5); g.fillRect(-34, -20, 68, 2);
+        g.fillStyle = F([40, 46, 54]);
+        g.fillRect(-14, -29, 12, 8); g.fillRect(2, -29, 11, 8);
+        g.fillStyle = F([150, 170, 180]);
+        g.fillRect(8, -28, 3, 6);
+        g.fillStyle = F([28, 24, 30]);
+        blobsOn(g, [[-20, -5, 6], [20, -5, 6]]);
+        volumeBlobs(g, [[-6, -32, 9], [2, -35, 7], [10, -32, 7], [26, -20, 8], [22, -26, 6], [-28, -18, 6]], ivy, FA);
+        break;
+      }
+      case 'puddle': { // flaque d'huile irisée qui redevient de l'eau claire
+        g.fillStyle = F(P.bloom ? [110, 180, 215] : [28, 22, 34]);
+        g.beginPath(); g.ellipse(0, -1, 42, 7, 0, 0, Math.PI * 2); g.fill();
+        if (P.bloom) {
+          g.fillStyle = 'rgba(255,255,255,0.45)';
+          g.beginPath(); g.ellipse(8, -3, 16, 2, 0, 0, Math.PI * 2); g.fill();
+        } else {
+          const gr = g.createLinearGradient(-20, 0, 20, 0);
+          gr.addColorStop(0, 'rgba(255,80,200,0.35)');
+          gr.addColorStop(0.5, 'rgba(80,220,255,0.35)');
+          gr.addColorStop(1, 'rgba(200,255,80,0.35)');
+          g.fillStyle = gr;
+          g.beginPath(); g.ellipse(-4, -2, 18, 3, 0, 0, Math.PI * 2); g.fill();
+        }
+        break;
+      }
+      case 'tree': // arbre malade qui reverdit
+        g.fillStyle = 'rgba(20,14,26,0.25)';
+        g.beginPath(); g.ellipse(-8, 0, 30, 4, 0, 0, Math.PI * 2); g.fill();
+        paintTree(g, 0, 0, 64, P.treeLeaf, FA, p.seed, P.bloom);
+        break;
+      case 'post': // lampadaire tordu, mangé par le lierre
+        g.strokeStyle = F([70, 72, 78]); g.lineWidth = 3;
+        g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -70); g.quadraticCurveTo(0, -82, 14, -80); g.stroke();
+        g.strokeStyle = F(mix([70, 72, 78], SUNLIGHT, 0.4)); g.lineWidth = 1;
+        g.beginPath(); g.moveTo(1.2, 0); g.lineTo(1.2, -70); g.stroke();
+        g.fillStyle = F([70, 72, 78]);
+        g.fillRect(10, -80, 9, 5);
+        volumeBlobs(g, [[0, -6, 8], [-3, -12, 6], [2, -22, 6], [-1, -34, 6], [1, -46, 5], [0, -56, 4]], ivy, FA);
+        break;
+      default: // gravats
+        g.fillStyle = 'rgba(20,14,26,0.25)';
+        g.beginPath(); g.ellipse(-4, 0, 30, 4, 0, 0, Math.PI * 2); g.fill();
+        volumeBlobs(g, [[-16, -7, 8], [2, -9, 10], [17, -5, 6], [-5, -17, 7]], [132, 124, 112], FA);
+        volumeBlobs(g, [[-18, -13, 5], [-13, -15, 4], [14, -11, 4.5]], ivy, FA);
+    }
+  }
+  function bakeProp(p) {
+    const k = p.s * 1.5;
+    p.sick = makeSprite(130 * k, 115 * k, g => paintProp(g, p, SICK));
+    p.heal = makeSprite(130 * k, 115 * k, g => paintProp(g, p, HEAL));
+    return p;
+  }
+  function drawProp(p) {
+    const x = screenX(p.X, p.s);
+    if (x < -200 || x > W + 200) return;
+    const y = groundY(p.s, x);
+    if (health < 0.99) ctx.drawImage(p.sick.cv, x - p.sick.ox, y - p.sick.oy);
+    if (health > 0.01) {
+      ctx.globalAlpha = health;
+      ctx.drawImage(p.heal.cv, x - p.heal.ox, y - p.heal.oy);
+      ctx.globalAlpha = 1;
+    }
+  }
+  function drawProps(min, max) {
+    for (const p of props) if (p.s >= min && p.s < max) drawProp(p);
+  }
+
+  // Brume de pollution qui se dissipe avec la guérison
+  function drawHaze() {
+    ctx.fillStyle = rgb([110, 95, 60], (1 - health) * 0.14);
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Hautes herbes au premier plan
+  function drawForeground() {
+    ctx.fillStyle = rgb(mix(col('near'), [10, 8, 12], 0.55), 0.9);
+    for (const f of fore) {
+      const x = screenX(f.X, FORE_S);
+      if (x < -100 || x > W + 100) continue;
+      for (let b = 0; b < 5; b++) {
+        const bx = x + (b - 2) * 9;
+        const bh = f.h * (0.6 + 0.4 * Math.sin(f.seed * 10 + b * 1.7) ** 2);
+        const lean = Math.sin(time * 1.5 + f.seed * 6 + b) * 7 + (b - 2) * 3 - 4;
+        ctx.beginPath();
+        ctx.moveTo(bx - 4, H);
+        ctx.quadraticCurveTo(bx + lean * 0.5, H - bh * 0.6, bx + lean, H - bh);
+        ctx.quadraticCurveTo(bx + lean * 0.4 + 3, H - bh * 0.5, bx + 4, H);
+        ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+
+  function drawMotes() {
+    const c = mix([150, 132, 104], [255, 240, 150], health);
+    ctx.fillStyle = rgb(c, 0.55);
+    for (const m of motes) { ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill(); }
+  }
+
+  // Couleurs des ronces malades (volume en trois tons + épines)
+  const BR_DARK = '#3b2742', BR_MID = '#5a3b63', BR_LIGHT = 'rgba(176,132,186,0.45)', THORN = '#e2c9e6';
+  function shadeBlobs(list, k = 1) {
+    ctx.fillStyle = BR_DARK;
+    blobs(list.map(([x, y, r]) => [x, y, r]));
+    ctx.fillStyle = BR_MID;
+    blobs(list.map(([x, y, r]) => [x + r * 0.18, y - r * 0.22, r * 0.72 * k]));
+    ctx.fillStyle = BR_LIGHT;
+    blobs(list.map(([x, y, r]) => [x + r * 0.35, y - r * 0.42, r * 0.32 * k]));
+  }
+
+  // Haie de ronces en relief au sol (mortelle)
+  function drawGround() {
+    const base = H - GROUND_H, sp = 16;
+    const off = distance % sp, start = Math.floor(distance / sp);
+    const hash = (k, a, b) => { const h = Math.sin(k * a) * b; return h - Math.floor(h); };  // hasard stable, attaché au monde
+    const list = [], top = [];
+    for (let i = -2; i * sp - off < W + sp * 2; i++) {
+      const k = start + i, rnd = hash(k, 12.9898, 43758.5453), rnd2 = hash(k, 78.233, 12543.123);
+      const x = i * sp - off, y = base + 7 + rnd * 7, r = 11 + rnd2 * 11;
+      list.push([x, y, r]);
+      if (rnd > 0.55) list.push([x + 7, y - r * 0.55, r * 0.55]);
+      top.push([x, y - r * 0.75, k]);
+    }
+    ctx.fillStyle = '#24172a';
+    ctx.fillRect(0, base + 8, W, GROUND_H);
+    ctx.fillStyle = 'rgba(30,18,36,0.5)';
+    blobs(list.map(([x, y, r]) => [x - 3, y + 5, r]));
+    // Épines de silhouette
+    ctx.fillStyle = '#2e1d34';
+    ctx.beginPath();
+    for (const [x, y, r] of list) { ctx.moveTo(x - 4, y - r * 0.8); ctx.lineTo(x + 2, y - r * 1.35); ctx.lineTo(x + 4, y - r * 0.8); ctx.closePath(); }
+    ctx.fill();
+    shadeBlobs(list, 0.9);
+    // Tige épineuse qui serpente sur la haie
+    for (const [w, color] of [[4, '#24162a'], [2, '#8a6094']]) {
+      ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+      ctx.beginPath();
+      top.forEach(([x, y, k], i) => {
+        if (i === 0) { ctx.moveTo(x, y); return; }
+        const [x0, y0] = top[i - 1];
+        ctx.quadraticCurveTo(x0 + sp * 0.5, (y0 + y) / 2 + (k % 2 ? -6 : 6), x, y);
+      });
+      ctx.stroke();
+    }
+    ctx.fillStyle = THORN;
+    ctx.beginPath();
+    for (const [x, y, k] of top) { const s = k % 2 ? -1 : 1; ctx.moveTo(x - 2.5, y); ctx.lineTo(x + 1, y + s * 6); ctx.lineTo(x + 2.5, y); ctx.closePath(); }
+    ctx.fill();
+  }
+
+  // Traînées de vent
+  function drawWinds() {
+    ctx.save();
+    ctx.strokeStyle = rgb([255, 255, 255], 0.28 + health * 0.15);
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    for (const w of winds) {
+      ctx.beginPath();
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12, x = w.x + t * w.len, y = w.y + Math.sin(t * 6 + w.ph + time * 3) * w.amp;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Petits esprits-aigrettes nés de la végétation purifiée
+  function drawSpirits() {
+    for (const sp of spirits) {
+      const a = clamp(sp.life / 1.2, 0, 1) * clamp((sp.max - sp.life) * 3, 0, 1);
+      const x = sp.x, y = sp.y + Math.sin(time * 3 + sp.ph) * 3;
+      ctx.save();
+      ctx.globalAlpha = a * 0.95;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillStyle = '#fff';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 7; i++) {
+        const ang = -Math.PI / 2 + (i - 3) * 0.32 + Math.sin(time * 2 + sp.ph) * 0.08;
+        const ex = x + Math.cos(ang) * 11, ey = y - 4 + Math.sin(ang) * 11;
+        ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ex, ey, 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.shadowColor = 'rgba(255,255,220,0.9)'; ctx.shadowBlur = 8;
+      ctx.fillStyle = '#fffbea';
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#3a3040';
+      ctx.fillRect(x - 1.8, y - 0.8, 1, 1.4);
+      ctx.fillRect(x + 0.9, y - 0.8, 1, 1.4);
+      ctx.restore();
+    }
+  }
+
+  // Grain de papier et vignettage, pour l'aspect peint
+  function drawPaper() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = grainPattern;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.max(W, H) * 0.75);
+    v.addColorStop(0, 'rgba(40,30,40,0)');
+    v.addColorStop(1, 'rgba(40,30,40,0.28)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---------- Murs organiques en relief ----------
+  function drawStone(c) {
+    const n = c.shape.length, dmg = 1 - c.hp / c.maxHp;
+    const r = c.r * (1 - dmg * 0.12);
+    const pts = c.shape.map((k, i) => {
+      const a = (i / n) * Math.PI * 2 + c.seed * 6;
+      return [c.x + Math.cos(a) * r * k, c.y + Math.sin(a) * r * k * 0.92];
+    });
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    ctx.beginPath();
+    const m0 = mid(pts[n - 1], pts[0]);
+    ctx.moveTo(m0[0], m0[1]);
+    for (let i = 0; i < n; i++) {
+      const q = mid(pts[i], pts[(i + 1) % n]);
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], q[0], q[1]);
+    }
+    ctx.closePath();
+    const g = ctx.createLinearGradient(c.x + r, c.y - r, c.x - r, c.y + r);
+    g.addColorStop(0, '#d2c8b6');
+    g.addColorStop(0.55, '#9d9282');
+    g.addColorStop(1, '#5f574f');
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40,32,30,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Mousse sur le dessus du rocher
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = '#7d9a55';
+    blobs([[c.x - r * 0.3, c.y - r * 0.85, r * 0.55], [c.x + r * 0.25, c.y - r * 0.95, r * 0.45]]);
+    ctx.fillStyle = 'rgba(200,228,150,0.55)';
+    blobs([[c.x + r * 0.35, c.y - r * 0.95, r * 0.25]]);
+    ctx.restore();
+    if (dmg > 0) {
+      ctx.strokeStyle = 'rgba(40,30,28,0.75)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(c.x - r * 0.1, c.y - r * 0.6); ctx.lineTo(c.x + r * 0.08, c.y - r * 0.1); ctx.lineTo(c.x - r * 0.15, c.y + r * 0.4);
+      if (dmg > 0.4) { ctx.moveTo(c.x + r * 0.08, c.y - r * 0.1); ctx.lineTo(c.x + r * 0.55, c.y + r * 0.15); }
+      if (dmg > 0.7) { ctx.moveTo(c.x - r * 0.15, c.y + r * 0.4); ctx.lineTo(c.x - r * 0.6, c.y + r * 0.3); }
+      ctx.stroke();
+    }
+  }
+
+  // Réseau de tiges épineuses qui relie les touffes en un seul fourré (tout est dessiné par lots)
+  function drawBrambleNetwork(soft) {
+    const links = soft.filter(c => c.link && c.link.alive);
+    const ctrl = c => [(c.x + c.link.x) / 2 + c.bend, (c.y + c.link.y) / 2];
+    for (const [w, color] of [[4.5, '#24162a'], [2.2, '#8a6094']]) {
+      ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const c of links) {
+        const [qx, qy] = ctrl(c);
+        ctx.moveTo(c.x, c.y); ctx.quadraticCurveTo(qx, qy, c.link.x, c.link.y);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = THORN;
+    ctx.beginPath();
+    for (const c of links) {
+      const [qx, qy] = ctrl(c);
+      for (const t of [0.3, 0.7]) {
+        const u = 1 - t;
+        const bx = u * u * c.x + 2 * u * t * qx + t * t * c.link.x, by = u * u * c.y + 2 * u * t * qy + t * t * c.link.y;
+        const tx = 2 * u * (qx - c.x) + 2 * t * (c.link.x - qx), ty = 2 * u * (qy - c.y) + 2 * t * (c.link.y - qy);
+        const len = Math.hypot(tx, ty) || 1, ux = tx / len, uy = ty / len, side = t < 0.5 ? 1 : -1;
+        ctx.moveTo(bx - ux * 2.5, by - uy * 2.5);
+        ctx.lineTo(bx - uy * 6 * side, by + ux * 6 * side);
+        ctx.lineTo(bx + ux * 2.5, by + uy * 2.5);
+        ctx.closePath();
+      }
+    }
+    ctx.fill();
+    // Feuilles malades
+    for (const [color, lo, hi] of [['#8a5f96', 0.45, 0.75], ['#6d8a4a', 0.75, 1.01]]) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (const c of soft) {
+        if (c.seed < lo || c.seed >= hi) continue;
+        const a = c.seed * 25, lx = c.x + Math.cos(a) * c.r * 0.5, ly = c.y + Math.sin(a) * c.r * 0.5;
+        ctx.moveTo(lx + Math.cos(a) * 6, ly + Math.sin(a) * 6);
+        ctx.ellipse(lx, ly, 6, 3.2, a, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
+    // Petites lueurs toxiques
+    ctx.fillStyle = 'rgba(190,255,90,0.55)';
+    blobs(soft.filter(c => c.seed < 0.2).map(c => [c.x + c.r * 0.3, c.y + c.r * 0.25, 2.2]));
+  }
+
+  // Bulbe gonflé de pollution, qui palpite
+  function drawPod(c) {
+    const r = c.r * 0.62 * (1 + Math.sin(time * 4 + c.seed * 6) * 0.06);
+    ctx.save();
+    ctx.shadowColor = '#b6ff3b';
+    ctx.shadowBlur = 14;
+    const g = ctx.createRadialGradient(c.x + r * 0.3, c.y - r * 0.35, r * 0.1, c.x, c.y, r);
+    g.addColorStop(0, '#f4ffb0');
+    g.addColorStop(0.5, '#b6ff3b');
+    g.addColorStop(1, '#5c8a1e');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(60,90,20,0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(c.x - r * 0.6, c.y + r * 0.2); ctx.quadraticCurveTo(c.x, c.y - r * 0.2, c.x + r * 0.5, c.y + r * 0.5); ctx.stroke();
+  }
+
+  // ---------- Racines incassables et pièges ----------
+  const JAW_P = 2.6, THORN_P = 2.4;
+  // Pièges désactivés pour l'instant (plante carnivore 'jaw', épines 'thorn') : les remettre ici pour les réactiver
+  const ENABLED_SPECIALS = ['root'];
+
+  // Plante carnivore : ouverte, frémit (avertissement), claque, reste fermée, se rouvre
+  function jawState(t) {
+    const u = t.t % JAW_P;
+    if (u < 1.3) return { c: 0, warn: false };
+    if (u < 1.65) return { c: 0.08, warn: true };
+    if (u < 1.85) return { c: 0.08 + ((u - 1.65) / 0.2) * 0.92, warn: false };
+    if (u < 2.3) return { c: 1, warn: false };
+    return { c: 1 - (u - 2.3) / 0.3, warn: false };
+  }
+
+  // Épines : rentrées, pointent (avertissement), jaillissent d'un bord, restent, se rétractent.
+  // Le bord d'où elles sortent alterne à chaque cycle : il faut lire l'avertissement et passer de l'autre côté.
+  function thornState(t) {
+    const u = t.t % THORN_P, side = Math.floor(t.t / THORN_P) % 2 ? -1 : 1;
+    const full = t.gapHalf * 2 * 0.62;
+    let ext = 0, warn = false;
+    if (u < 0.9) ext = 0;
+    else if (u < 1.3) { ext = 9; warn = true; }
+    else if (u < 1.45) ext = 9 + ((u - 1.3) / 0.15) * (full - 9);
+    else if (u < 2.2) ext = full;
+    else ext = full * (1 - (u - 2.2) / 0.2);
+    return { ext, warn, side };
+  }
+
+  // Racines-mères : un tronc noueux continu, brun, éclairé côté soleil
+  function drawRoots(roots) {
+    if (!roots.length) return;
+    const ROOT = [98, 68, 52];
+    const links = roots.filter(c => c.link && c.link.alive);
+    const seg = c => {
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.quadraticCurveTo((c.x + c.link.x) / 2 + c.bend * 0.5, (c.y + c.link.y) / 2, c.link.x, c.link.y);
+    };
+    ctx.lineCap = 'round';
+    for (const [k, color] of [[1.55, mix(ROOT, SHADOW, 0.4)], [1.3, ROOT]]) {   // tronc à la taille de la collision
+      ctx.strokeStyle = rgb(color);
+      for (const c of links) { ctx.lineWidth = c.r * k; seg(c); ctx.stroke(); }
+      ctx.fillStyle = rgb(color);
+      blobs(roots.map(c => [c.x, c.y, c.r * k * 0.5]));
+    }
+    // Lumière côté soleil
+    ctx.strokeStyle = rgb(mix(ROOT, SUNLIGHT, 0.4), 0.75);
+    ctx.lineWidth = 2.5;
+    for (const c of links) {
+      ctx.beginPath();
+      ctx.moveTo(c.x + c.r * 0.5, c.y);
+      ctx.quadraticCurveTo((c.x + c.link.x) / 2 + c.bend * 0.5 + c.r * 0.5, (c.y + c.link.y) / 2, c.link.x + c.r * 0.5, c.link.y);
+      ctx.stroke();
+    }
+    // Écorce striée et nœuds
+    ctx.strokeStyle = rgb(mix(ROOT, SHADOW, 0.6));
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    for (const c of roots) {
+      for (const k of [-1, 1]) {
+        ctx.moveTo(c.x + k * c.r * 0.22, c.y - c.r * 0.55);
+        ctx.quadraticCurveTo(c.x + k * c.r * 0.38, c.y, c.x + k * c.r * 0.18, c.y + c.r * 0.55);
+      }
+    }
+    ctx.stroke();
+    ctx.fillStyle = rgb(mix(ROOT, SHADOW, 0.55));
+    for (const c of roots) if (c.seed > 0.75) { ctx.beginPath(); ctx.ellipse(c.x - c.r * 0.1, c.y, c.r * 0.22, c.r * 0.14, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = '#7d9a55';
+    blobs(roots.filter(c => c.seed < 0.3).map(c => [c.x - c.r * 0.3, c.y - c.r * 0.45, c.r * 0.3]));
+  }
+
+  // Plante carnivore (dionée) : deux lobes arrondis, intérieur rouge, bordés de longs cils
+  function drawJaw(t) {
+    const { c, warn } = jawState(t);
+    const jit = warn ? Math.sin(time * 70) * 1.8 : 0;
+    const L = t.gapHalf + 6, hw = t.w / 2 + 4, x = t.x + jit;
+    if (warn) { ctx.fillStyle = 'rgba(255,80,100,0.16)'; ctx.fillRect(x - hw, t.top, hw * 2, t.bot - t.top); }
+    for (const dir of [1, -1]) {
+      const edge = dir > 0 ? t.top : t.bot;
+      const lip = edge + dir * c * L, y0 = edge - dir * 16;
+      const cy = (y0 + lip) / 2, ry = Math.abs(lip - y0) / 2 + 6;
+      // Lobe extérieur
+      ctx.save();
+      ctx.shadowColor = 'rgba(30,18,36,0.45)'; ctx.shadowBlur = 6; ctx.shadowOffsetX = -3; ctx.shadowOffsetY = 4;
+      const g = ctx.createLinearGradient(0, y0, 0, lip);
+      g.addColorStop(0, '#3f5a2c');
+      g.addColorStop(1, '#8fae4a');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(x, cy, hw, ry, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(30,18,36,0.55)'; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.ellipse(x, cy, hw, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      // Reflet côté soleil
+      ctx.fillStyle = 'rgba(220,245,170,0.35)';
+      ctx.beginPath(); ctx.ellipse(x + hw * 0.45, cy - dir * ry * 0.15, hw * 0.25, ry * 0.55, 0, 0, Math.PI * 2); ctx.fill();
+      // Intérieur rouge, le long de la lèvre
+      ctx.fillStyle = warn ? '#e8506a' : '#b23a50';
+      ctx.beginPath(); ctx.ellipse(x, lip - dir * 5, hw * 0.82, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,190,200,0.5)';
+      ctx.beginPath(); ctx.ellipse(x + hw * 0.2, lip - dir * 6, hw * 0.3, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+      // Veines
+      ctx.strokeStyle = 'rgba(40,70,25,0.5)'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const k of [-0.5, 0, 0.5]) { ctx.moveTo(x + k * hw * 0.3, y0 + dir * 4); ctx.quadraticCurveTo(x + k * hw * 0.9, cy, x + k * hw * 0.8, lip - dir * 9); }
+      ctx.stroke();
+      // Longs cils qui s'entrecroisent quand la plante se ferme
+      ctx.strokeStyle = '#f2ead8'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let k = 0; k <= 8; k++) {
+        const u = -0.9 + (k / 8) * 1.8;
+        const bx = x + u * hw, by = cy + dir * ry * Math.sqrt(Math.max(0, 1 - u * u));
+        ctx.moveTo(bx, by); ctx.lineTo(bx + u * 4, by + dir * 12);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Épines rétractiles : un bourrelet de ronce sur chaque bord, d'où jaillissent trois grandes épines
+  function drawThorns(t) {
+    const { ext, warn, side } = thornState(t);
+    const spikes = [[-13, 0.75], [0, 1], [13, 0.8]];
+    for (const sd of [1, -1]) {
+      const edge = sd > 0 ? t.top : t.bot, len = sd === side ? ext : 0;
+      if (warn && sd === side) {
+        ctx.fillStyle = 'rgba(255,70,90,0.4)';
+        ctx.beginPath(); ctx.ellipse(t.x, edge + sd * 4, 28, 12, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      if (len > 0.5) {
+        ctx.fillStyle = '#3b2742';
+        ctx.beginPath();
+        for (const [dx, k] of spikes) {
+          const bx = t.x + dx;
+          ctx.moveTo(bx - 5, edge); ctx.lineTo(bx, edge + sd * len * k); ctx.lineTo(bx + 5, edge); ctx.closePath();
+        }
+        ctx.fill();
+        ctx.fillStyle = THORN;
+        ctx.beginPath();
+        for (const [dx, k] of spikes) {
+          const bx = t.x + dx, l = len * k, tipY = edge + sd * l, back = sd * Math.min(10, l * 0.35);
+          ctx.moveTo(bx - 1.6, tipY - back); ctx.lineTo(bx, tipY); ctx.lineTo(bx + 1.6, tipY - back); ctx.closePath();
+        }
+        ctx.fill();
+      }
+      shadeBlobs([[t.x - 12, edge - sd * 3, 9], [t.x, edge - sd, 10], [t.x + 12, edge - sd * 3, 9]], 1);
+    }
+  }
+
+  // Éclair de sève et charge lumineuse dans la bouche de Gloub
+  function drawBeams() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    // Méga-ondes : arcs géants, cœur blanc, halo vert
+    for (const m of megas) {
+      const R = m.half / Math.sin(0.95);
+      for (let k = 0; k < 5; k++) {
+        const rr = R * (1 - k * 0.1), cx = m.x - k * 16 - rr;
+        ctx.strokeStyle = k === 0 ? 'rgba(255,255,240,0.95)' : `rgba(200,255,110,${0.75 - k * 0.13})`;
+        ctx.lineWidth = 14 - k * 2.4;
+        ctx.shadowColor = '#d8ff6a'; ctx.shadowBlur = 24;
+        ctx.beginPath(); ctx.arc(cx, m.y, rr, -0.95, 0.95); ctx.stroke();
+      }
+    }
+    ctx.shadowBlur = 0;
+    // Concentration : la lumière converge vers Gloub, un anneau se resserre
+    if (state === 'play' && player.charge > 0) {
+      const k = player.charge / BEAM_CHARGE, gx = W * PLAYER_X_RATIO, gy = player.y;
+      for (let i = 0; i < 14; i++) {
+        const u = (time * 1.6 + i / 14) % 1, a = i * 2.39 + time * 0.8, r = 90 * (1 - u) + 10;
+        ctx.fillStyle = `rgba(220,255,140,${k * (0.3 + 0.7 * u)})`;
+        ctx.beginPath(); ctx.arc(gx + Math.cos(a) * r, gy + Math.sin(a) * r, 2 + u * 2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(220,255,140,${k * 0.35 * u})`; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(gx + Math.cos(a) * r, gy + Math.sin(a) * r); ctx.lineTo(gx + Math.cos(a) * (r + 14), gy + Math.sin(a) * (r + 14)); ctx.stroke();
+      }
+      ctx.strokeStyle = `rgba(255,255,230,${0.25 + 0.6 * k})`; ctx.lineWidth = 2 + k * 3;
+      ctx.beginPath(); ctx.arc(gx, gy, 20 + 60 * (1 - k), 0, Math.PI * 2); ctx.stroke();
+      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 18 + k * 34);
+      g.addColorStop(0, `rgba(255,255,220,${0.25 + 0.5 * k})`); g.addColorStop(1, 'rgba(200,255,110,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(gx, gy, 18 + k * 34, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    if (flashT > 0) { ctx.fillStyle = `rgba(255,255,235,${flashT * 1.4})`; ctx.fillRect(0, 0, W, H); }
+  }
+
+  // Moustique de suie, effrayant et toxique : abdomen gonflé de poison qui luit, longue aiguille qui goutte,
+  // deux yeux rouges, ailes déchirées aux nervures sombres, pattes épineuses
+  function drawBug(b) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(Math.sin(b.t * 7 + b.phase) * 0.12);
+    ctx.scale(2.3, 2.3);
+    const buzz = Math.sin(time * 90 + b.phase);
+    // Ailes déchirées qui vrombissent
+    for (const [ox, oy, rot] of [[2, -4.5, -0.55], [4.2, -3.8, -0.15]]) {
+      ctx.save();
+      ctx.translate(ox, oy + buzz * 0.9); ctx.rotate(rot + buzz * 0.2);
+      ctx.fillStyle = 'rgba(190,210,170,0.35)'; ctx.strokeStyle = 'rgba(30,20,30,0.7)'; ctx.lineWidth = 0.4;
+      ctx.beginPath(); ctx.moveTo(-4.5, 0); ctx.quadraticCurveTo(0, -3, 5, -0.5); ctx.lineTo(3.5, 0.6); ctx.lineTo(4, 1.5); ctx.lineTo(1.5, 1.3); ctx.lineTo(1, 2.2); ctx.quadraticCurveTo(-2, 2, -4.5, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(4, -0.6); ctx.moveTo(-2, 0.5); ctx.lineTo(2, 1.6); ctx.stroke();
+      ctx.restore();
+    }
+    // Pattes épineuses
+    ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.6; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const lx of [-1.5, 1, 3.5]) {
+      ctx.moveTo(lx, 1); ctx.lineTo(lx - 1, 4); ctx.lineTo(lx + 1.5, 7.5);
+      ctx.moveTo(lx - 1, 4); ctx.lineTo(lx - 2, 3.4);
+    }
+    ctx.stroke();
+    // Abdomen gonflé de poison, qui luit et pulse
+    const pul = 1 + Math.sin(time * 8 + b.phase) * 0.08;
+    ctx.save();
+    ctx.shadowColor = '#b6ff3b'; ctx.shadowBlur = 8;
+    const ga = ctx.createRadialGradient(6, 0, 0.5, 6.5, 1, 5.5 * pul);
+    ga.addColorStop(0, '#e6ff8a'); ga.addColorStop(0.5, '#8fd62a'); ga.addColorStop(1, '#3d5a14');
+    ctx.fillStyle = ga;
+    ctx.beginPath(); ctx.ellipse(6.5, 1, 5.2 * pul, 3 * pul, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(20,30,8,0.8)'; ctx.lineWidth = 0.5;   // veines et anneaux
+    ctx.beginPath();
+    for (const sx of [4.5, 6.6, 8.7]) { ctx.moveTo(sx, -1.6 + (sx - 4) * 0.3); ctx.quadraticCurveTo(sx + 0.6, 1, sx - 0.2, 3.4 + (sx - 4) * 0.3); }
+    ctx.stroke();
+    ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.ellipse(6.5, 1, 5.2 * pul, 3 * pul, 0.3, 0, Math.PI * 2); ctx.stroke();
+    // Thorax bossu et tête
+    ctx.fillStyle = '#1f1a20';
+    ctx.beginPath(); ctx.arc(0, -0.6, 2.9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#2b2430';
+    ctx.beginPath(); ctx.arc(-3.3, -1, 2.1, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // Longue aiguille qui goutte de poison
+    ctx.strokeStyle = '#1a141c'; ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.moveTo(-5, -0.5); ctx.lineTo(-13, 1.4); ctx.stroke();
+    ctx.fillStyle = '#b6ff3b';
+    const drip = (time * 1.5 + b.phase) % 1;
+    ctx.beginPath(); ctx.ellipse(-12.6, 2.2 + drip * 3, 0.6, 0.6 + drip * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Antennes plumeuses sombres
+    ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(-3.8, -2.8); ctx.quadraticCurveTo(-5.5, -5.5, -7.5, -5.6); ctx.moveTo(-3, -3); ctx.quadraticCurveTo(-4, -6.2, -5.8, -6.8); ctx.stroke();
+    // Deux yeux rouges qui brillent, sourcils froncés
+    ctx.save();
+    ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 6;
+    ctx.fillStyle = '#ff2a40';
+    ctx.beginPath(); ctx.arc(-3.9, -1.3, 0.95, 0, Math.PI * 2); ctx.arc(-2.4, -1.5, 0.75, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#ffe0e0';
+    ctx.beginPath(); ctx.arc(-4.1, -1.6, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(-5.4, -3.1); ctx.lineTo(-3.3, -2.3); ctx.moveTo(-3.2, -3.2); ctx.lineTo(-1.6, -2.6); ctx.stroke();
+    ctx.restore();
+  }
+  function drawBugs() {
+    for (const sw of swarms) {   // annonce : chevrons rouges qui clignotent sur le bord droit
+      const a = 0.5 + 0.5 * Math.abs(Math.sin(time * 12));
+      ctx.fillStyle = `rgba(255,70,90,${a})`;
+      for (const k of [0, 1, 2]) {
+        const x = W - 16 - SAFE.r - k * 17;
+        ctx.beginPath(); ctx.moveTo(x, sw.y - 15); ctx.lineTo(x - 14, sw.y); ctx.lineTo(x, sw.y + 15); ctx.lineTo(x - 5, sw.y); ctx.closePath(); ctx.fill();
+      }
+    }
+    for (const b of bugs) drawBug(b);
+  }
+
+  function drawTraps() {
+    for (const t of traps) {
+      if (t.x - t.w > W + 20 || t.x + t.w < -20) continue;
+      if (t.type === 'jaw') drawJaw(t); else drawThorns(t);
+    }
+  }
+
+  function drawWalls() {
+    const vis = cells.filter(c => c.alive && c.x + c.r > -30 && c.x - c.r < W + 30);
+    const soft = vis.filter(c => c.type === 'bramble' || c.type === 'pod' || c.type === 'berrycell');
+    const roots = vis.filter(c => c.type === 'root');
+    const lumpy = soft.flatMap(c => [[c.x, c.y, c.r], ...c.lumps.map(([dx, dy, lr]) => [c.x + dx, c.y + dy, lr])]);
+    // Ombre portée commune : les cellules se fondent en une seule masse
+    ctx.fillStyle = 'rgba(30,18,36,0.4)';
+    blobs([
+      ...vis.filter(c => c.type === 'stone' || c.type === 'root').map(c => [c.x - 4, c.y + 6, c.r * 1.05]),
+      ...lumpy.map(([x, y, r]) => [x - 4, y + 6, r * 1.05]),
+    ]);
+    drawRoots(roots);
+    for (const c of vis) if (c.type === 'stone') drawStone(c);
+    // Épines qui dépassent de la silhouette
+    ctx.fillStyle = '#2e1d34';
+    ctx.beginPath();
+    for (const c of soft) {
+      for (let k = 0; k < 4; k++) {
+        const a = c.seed * 40 + k * 1.57, ca = Math.cos(a), sa = Math.sin(a);
+        const bx = c.x + ca * c.r * 0.85, by = c.y + sa * c.r * 0.85;
+        ctx.moveTo(bx - sa * 3.5, by + ca * 3.5);
+        ctx.lineTo(c.x + ca * c.r * 1.3, c.y + sa * c.r * 1.3);
+        ctx.lineTo(bx + sa * 3.5, by - ca * 3.5);
+        ctx.closePath();
+      }
+    }
+    ctx.fill();
+    // Ronces : masse sombre, volume, reflets, puis tiges et épines
+    shadeBlobs(lumpy);
+    drawBrambleNetwork(soft);
+    for (const c of soft) if (c.type === 'pod') drawPod(c);
+    for (const c of soft) {
+      if (c.type !== 'berrycell') continue;
+      const pulse = 0.5 + 0.5 * Math.sin(time * 4 + c.seed * 6);
+      ctx.save();
+      ctx.strokeStyle = `rgba(217,166,255,${0.35 + 0.4 * pulse})`;
+      ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.lineDashOffset = -time * 12;
+      ctx.beginPath(); ctx.arc(c.x, c.y, c.r * 1.05 + pulse * 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      drawBerry({ px: c.x, py: c.y, t: time + c.seed * 3, dir: 0, eating: undefined, x: c.x, y: c.y });
+    }
+  }
+
+  function drawFlower(f) {
+    const s = Math.min(1, f.t * 2.5);
+    const sway = Math.sin(time * 2 + f.seed * 6) * 0.15;
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    // Lierre redevenu sain, non solide
+    ctx.globalAlpha = 0.35 * s;
+    ctx.fillStyle = '#5fbf6a';
+    ctx.beginPath(); ctx.ellipse(0, 4, CELL_R * 1.05, CELL_R * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.rotate(sway);
+    ctx.scale(s, s);
+    ctx.strokeStyle = '#4caf50'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 14); ctx.lineTo(0, 0); ctx.stroke();
+    ctx.fillStyle = f.color;
+    for (let k = 0; k < 5; k++) {
+      const a = k * Math.PI * 2 / 5;
+      ctx.beginPath(); ctx.ellipse(Math.cos(a) * 6, Math.sin(a) * 6, 5, 3.2, a, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#ffe066';
+    ctx.beginPath(); ctx.arc(0, 0, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+
+  // Traits d'aspiration entre la proie et la bouche de Gloub
+  function drawSuction(p) {
+    const e = Math.min(1, p.eating), mx = W * PLAYER_X_RATIO + 12, my = player.y + 8;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,255,240,${0.7 * (1 - e)})`; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    for (const off of [-10, 0, 10]) {
+      const a = 0.25 + ((time * 3 + off) % 1 + 1) % 1 * 0.6;   // tirets qui filent vers la bouche
+      const x0 = p.px + (mx - p.px) * a, y0 = p.py + off * (1 - a) + (my - p.py) * a;
+      const x1 = p.px + (mx - p.px) * Math.min(1, a + 0.18), y1 = p.py + off * (1 - a - 0.18) + (my - p.py) * Math.min(1, a + 0.18);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawPickup(p) {
+    if (p.eating !== undefined) drawSuction(p);
+    if (p.kind === 'berry') { drawBerry(p); return; }
+    if (p.kind === 'fruit') drawFruit(p); else drawMoth(p);
+  }
+
+  // Papillon radioactif : toujours kawaii, mais visiblement malade. Ailes noircies de suie aux nervures
+  // fluorescentes, ocelles en trèfle radioactif, abdomen qui luit, yeux mi-clos, lueur qui grésille.
+  const MOTH_INK = '#141018', TOXIC = '#b6ff3b', HAZARD = '#ffe23a';
+  function mothWing(g, front, f) {
+    // Aile droite (l'aile gauche est dessinée en miroir). f = ouverture (1 = déployée, ~0.3 = de profil)
+    g.save();
+    g.scale(f, 1);
+    const shape = () => {
+      g.beginPath();
+      if (front) {
+        g.moveTo(1.5, -3);
+        g.bezierCurveTo(5, -9, 10, -12, 14, -11);
+        g.quadraticCurveTo(14.5, -8, 13.5, -6.5);
+        g.quadraticCurveTo(13.8, -4, 12.5, -2.5);
+        g.quadraticCurveTo(12.4, 0, 10.5, 0.5);
+        g.bezierCurveTo(7, 1.2, 4, 1, 1.5, 0.5);
+      } else {
+        g.moveTo(1.5, 0);
+        g.bezierCurveTo(6, -0.5, 10.5, 1.5, 10, 5);
+        g.bezierCurveTo(9.5, 8.5, 5.5, 9.5, 3.5, 8);
+        g.quadraticCurveTo(2, 6.5, 1.5, 4);
+      }
+      g.closePath();
+    };
+    shape();
+    const gr = g.createLinearGradient(1, 0, 14, 0);
+    if (front) { gr.addColorStop(0, '#24202a'); gr.addColorStop(0.65, '#3d3746'); gr.addColorStop(1, '#5a5266'); }
+    else { gr.addColorStop(0, '#2a2430'); gr.addColorStop(1, '#4a3f52'); }
+    g.fillStyle = gr;
+    g.fill();
+    g.save();
+    g.clip();
+    // Nervures fluorescentes
+    g.save();
+    g.shadowColor = TOXIC; g.shadowBlur = 4;
+    g.strokeStyle = 'rgba(182,255,59,0.85)'; g.lineWidth = 0.6;
+    g.beginPath();
+    if (front) {
+      g.moveTo(2, -2); g.quadraticCurveTo(8, -6, 13, -9);
+      g.moveTo(2, -1); g.quadraticCurveTo(8, -3, 12.5, -3);
+      g.moveTo(2, 0); g.quadraticCurveTo(7, 0, 10.5, 0);
+    } else {
+      g.moveTo(2, 1); g.quadraticCurveTo(6, 2, 9, 4.5);
+      g.moveTo(2, 2.5); g.quadraticCurveTo(4.5, 5, 4.5, 7.5);
+    }
+    g.stroke();
+    g.restore();
+    if (front) {
+      // Ocelle en trèfle radioactif
+      g.fillStyle = HAZARD;
+      g.beginPath(); g.arc(8.5, -4.5, 2.7, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#1a1418';
+      g.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const a = -Math.PI / 2 + (k * 2 * Math.PI) / 3;
+        g.moveTo(8.5, -4.5); g.arc(8.5, -4.5, 2.3, a - 0.5, a + 0.5); g.closePath();
+      }
+      g.fill();
+      g.fillStyle = HAZARD;
+      g.beginPath(); g.arc(8.5, -4.5, 0.55, 0, Math.PI * 2); g.fill();
+      // Taches de suie
+      g.fillStyle = 'rgba(0,0,0,0.4)';
+      for (const [x, y, r] of [[4.5, -4, 0.8], [11.5, -7.5, 0.7], [5, -0.8, 0.6], [12, -3.5, 0.6]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+    } else {
+      // Bord de l'aile arrière qui luit
+      g.strokeStyle = 'rgba(182,255,59,0.55)'; g.lineWidth = 1.4;
+      shape(); g.stroke();
+    }
+    g.restore();
+    shape();   // contour
+    g.strokeStyle = MOTH_INK; g.lineWidth = 0.9; g.lineJoin = 'round';
+    g.stroke();
+    g.restore();
+  }
+
+  function paintMoth(g, x, y, t, seed, scale) {
+    const flap = Math.abs(Math.sin(t * 22));
+    const fr = 0.3 + 0.7 * flap, hr = 0.35 + 0.65 * flap;
+    // Lueur qui grésille, comme un compteur Geiger
+    const flick = 0.55 + 0.25 * Math.sin(t * 9 + seed) + (Math.sin(t * 53 + seed * 7) > 0.7 ? 0.35 : 0);
+    g.save();
+    g.translate(x, y);
+    g.rotate(Math.sin(t * 3 + seed) * 0.2);
+    g.scale(scale, scale);
+    const glow = g.createRadialGradient(0, 0, 2, 0, 0, 18);
+    glow.addColorStop(0, `rgba(182,255,59,${0.55 * flick})`);
+    glow.addColorStop(1, 'rgba(182,255,59,0)');
+    g.fillStyle = glow;
+    g.beginPath(); g.arc(0, 0, 18, 0, Math.PI * 2); g.fill();
+    for (const side of [-1, 1]) {
+      g.save();
+      g.scale(side, 1);
+      mothWing(g, false, hr);
+      mothWing(g, true, fr);
+      g.restore();
+    }
+    // Abdomen radioactif qui luit, rayé de noir
+    g.save();
+    g.shadowColor = TOXIC; g.shadowBlur = 6 * flick;
+    const ga = g.createLinearGradient(0, 0, 0, 9.5);
+    ga.addColorStop(0, '#7fd62a'); ga.addColorStop(1, '#d8ff6a');
+    g.fillStyle = ga;
+    g.beginPath(); g.ellipse(0, 4.5, 2.2, 5, 0, 0, Math.PI * 2); g.fill();
+    g.restore();
+    g.strokeStyle = 'rgba(20,30,10,0.75)'; g.lineWidth = 0.7;
+    g.beginPath(); for (const yy of [3, 5, 7]) { g.moveTo(-1.9, yy); g.quadraticCurveTo(0, yy + 0.8, 1.9, yy); } g.stroke();
+    g.strokeStyle = MOTH_INK; g.lineWidth = 0.9;
+    g.beginPath(); g.ellipse(0, 4.5, 2.2, 5, 0, 0, Math.PI * 2); g.stroke();
+    // Goutte de bave qui pend
+    g.fillStyle = TOXIC;
+    g.beginPath(); g.ellipse(0.3, 10.3 + Math.sin(t * 4) * 0.4, 0.9, 1.3, 0, 0, Math.PI * 2); g.fill();
+    // Thorax duveteux, gris-vert de suie
+    g.fillStyle = '#3d4636';
+    g.beginPath();
+    for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; g.moveTo(Math.cos(a) * 2.6 + 1.3, -1 + Math.sin(a) * 2.6); g.arc(Math.cos(a) * 2.6, -1 + Math.sin(a) * 2.6, 1.3, 0, Math.PI * 2); }
+    g.fill();
+    g.beginPath(); g.arc(0, -1, 3, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(200,255,150,0.25)';
+    g.beginPath(); g.arc(1.2, -2.2, 1.4, 0, Math.PI * 2); g.fill();
+    // Tête et yeux mi-clos, fatigués
+    g.fillStyle = '#2a2830'; g.strokeStyle = MOTH_INK; g.lineWidth = 0.9;
+    g.beginPath(); g.arc(0, -5.2, 2.6, 0, Math.PI * 2); g.fill(); g.stroke();
+    for (const ex of [-1.3, 1.3]) {
+      g.fillStyle = '#0e0a10';
+      g.beginPath(); g.ellipse(ex, -5.1, 1.05, 1.0, 0, 0, Math.PI); g.fill();     // paupière lourde : seule la moitié basse de l'œil
+      g.fillStyle = TOXIC;
+      g.beginPath(); g.arc(ex + 0.3, -4.75, 0.3, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = MOTH_INK; g.lineWidth = 0.6;
+      g.beginPath(); g.moveTo(ex - 1.2, -5.25); g.lineTo(ex + 1.2, -5.05); g.stroke();
+    }
+    g.fillStyle = 'rgba(160,220,80,0.5)';   // joues verdâtres
+    for (const ex of [-1.9, 1.9]) { g.beginPath(); g.ellipse(ex, -4.1, 0.6, 0.35, 0, 0, Math.PI * 2); g.fill(); }
+    // Antennes plumeuses, pointes qui luisent
+    g.strokeStyle = MOTH_INK; g.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      g.lineWidth = 0.55;
+      g.beginPath();
+      g.moveTo(side * 0.8, -7.4);
+      g.quadraticCurveTo(side * 2.2, -11.5, side * 5.2, -12.2);
+      g.stroke();
+      g.lineWidth = 0.3;
+      g.beginPath();
+      for (let k = 1; k <= 6; k++) {
+        const u = k / 7, ax = side * (0.8 + u * 4.4), ay = -7.4 - Math.sin(u * Math.PI * 0.75) * 4.4;
+        g.moveTo(ax, ay); g.lineTo(ax + side * 0.6, ay - 0.9);
+        g.moveTo(ax, ay); g.lineTo(ax - side * 0.4, ay - 1);
+      }
+      g.stroke();
+      g.fillStyle = TOXIC;
+      g.beginPath(); g.arc(side * 5.2, -12.2, 0.7 * flick + 0.2, 0, Math.PI * 2); g.fill();
+    }
+    g.restore();
+  }
+  function drawMoth(p) {
+    if (p.eating === undefined) { paintMoth(ctx, p.px, p.py, p.t, p.seed, 1.6); return; }
+    const e = Math.min(1, p.eating);
+    ctx.save();
+    ctx.translate(p.px, p.py); ctx.rotate(e * 7); ctx.translate(-p.px, -p.py);
+    paintMoth(ctx, p.px, p.py, p.t, p.seed, 1.6 * (1 - 0.8 * e));
+    ctx.restore();
+  }
+
+  // Grosse mûre façon bonus : drupes noir-violet bien juteuses et brillantes, halo qui pulse, étincelles qui tournent
+  function drawBerry(p) {
+    const e = p.eating === undefined ? 0 : Math.min(1, p.eating);
+    ctx.save();
+    if (p.dir && !e) {   // tige qui la relie à la ronce
+      ctx.strokeStyle = '#4f6b2e'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.quadraticCurveTo((p.x + p.px) / 2 + 3, (p.y + p.py) / 2, p.px, p.py - 12 * p.dir); ctx.stroke();
+    }
+    ctx.translate(p.px, p.py);
+    ctx.rotate(e * 6 + Math.sin(p.t * 3) * 0.08);
+    const k = 1.85 * (1 - 0.75 * e);   // taille fixe : seul le halo respire
+    ctx.scale(k, k);
+    // Halo de bonus et anneau d'étincelles
+    const halo = ctx.createRadialGradient(0, 0, 3, 0, 0, 19);
+    halo.addColorStop(0, `rgba(214,170,255,${0.28 + 0.1 * Math.sin(p.t * 5)})`); halo.addColorStop(1, 'rgba(170,110,255,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(0, 0, 19, 0, Math.PI * 2); ctx.fill();
+    if (!e) {
+      ctx.fillStyle = 'rgba(255,246,208,0.75)';
+      for (let i = 0; i < 2; i++) {   // deux étincelles discrètes
+        const a = p.t * 2.5 + i * Math.PI, r = 13.5, x = Math.cos(a) * r, y = Math.sin(a) * r * 0.8, sp = 0.9 + Math.abs(Math.sin(p.t * 6 + i)) * 0.8;
+        ctx.beginPath(); ctx.moveTo(x, y - sp); ctx.lineTo(x + 0.5, y); ctx.lineTo(x, y + sp); ctx.lineTo(x - 0.5, y); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x - sp, y); ctx.lineTo(x, y + 0.5); ctx.lineTo(x + sp, y); ctx.lineTo(x, y - 0.5); ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.save();
+    ctx.translate(0, -2.8);   // la collerette se pose sur le haut de la grappe ronde
+    // Feuille peinte : deux tons et une nervure, comme le feuillage du décor
+    ctx.fillStyle = '#3f6b2a';
+    ctx.beginPath(); ctx.ellipse(4.8, -9.2, 5, 2.3, -0.45, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#76a648';
+    ctx.beginPath(); ctx.ellipse(5.4, -9.9, 3.6, 1.2, -0.45, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(20,40,12,0.7)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(1, -7.6); ctx.quadraticCurveTo(5, -9.6, 9, -11); ctx.stroke();
+    // Sépales : petites touches de pinceau
+    ctx.strokeStyle = '#4f8a30'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+    ctx.beginPath(); for (const a of [-1.1, -0.4, 0.4, 1.1]) { ctx.moveTo(0, -6.5); ctx.lineTo(Math.sin(a) * 4.5, -6.5 + Math.cos(a) * 1.5 - 1); } ctx.stroke();
+    ctx.restore();
+    // Drupes peintes comme les ronces : ombre portée, masse sombre, ton moyen vers le soleil, reflet, éclat
+    // Grappe bien ronde : un grain au centre, une couronne de 6, une couronne de 11
+    const drupes = [[0, 0.6]];
+    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + 0.3; drupes.push([Math.cos(a) * 3.4, 0.6 + Math.sin(a) * 3.5]); }
+    for (let i = 0; i < 11; i++) { const a = (i / 11) * Math.PI * 2; drupes.push([Math.cos(a) * 6.3, 0.8 + Math.sin(a) * 6.5]); }
+    for (const d of drupes) {   // forme de mûre : un peu allongée, plus étroite vers le bas
+      d[1] = 0.6 + (d[1] - 0.6) * 1.15;
+      d[0] *= 1 - Math.max(0, d[1]) * 0.035;
+    }
+    drupes.sort((a, b) => a[1] - b[1]);   // les grains du bas recouvrent ceux du haut
+    const R = 2.9;
+    const pass = (color, ox, oy, k) => {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (const [dx, dy] of drupes) { ctx.moveTo(dx + ox + R * k, dy + oy); ctx.arc(dx + ox, dy + oy, R * k, 0, Math.PI * 2); }
+      ctx.fill();
+    };
+    pass('rgba(20,6,28,0.45)', -1.2, 1.6, 1.05);   // ombre portée vers le bas-gauche
+    pass('#2a0f3a', 0, 0, 1);                      // masse sombre
+    pass('#5b2a78', 0.55, -0.65, 0.72);            // ton moyen, décalé vers le soleil
+    pass('rgba(169,121,207,0.85)', 1, -1.2, 0.36); // reflet
+    pass('rgba(255,255,255,0.9)', 1.25, -1.45, 0.16);   // petit éclat : elle a l'air juteuse
+    // Touches d'encre : un trait sous chaque drupe pour détacher les grains
+    ctx.strokeStyle = 'rgba(14,2,20,0.75)'; ctx.lineWidth = 0.55; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const [dx, dy] of drupes) { ctx.moveTo(dx + Math.cos(0.5 * Math.PI) * R * 0.95, dy + Math.sin(0.5 * Math.PI) * R * 0.95); ctx.arc(dx, dy, R * 0.95, 0.5 * Math.PI, 1.05 * Math.PI); }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Fruit doré : pend à une liane accrochée au bord du passage, brille doucement
+  function drawFruit(p) {
+    const e = p.eating === undefined ? 0 : Math.min(1, p.eating);
+    ctx.save();
+    ctx.translate(p.px, p.py); ctx.rotate(e * 5); ctx.scale(1.3 * (1 - 0.75 * e), 1.3 * (1 - 0.75 * e)); ctx.translate(-p.px, -p.py);
+    ctx.strokeStyle = '#5d6b33'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    if (!e) {   // la liane casse dès qu'il est happé
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - 6);
+      ctx.quadraticCurveTo((p.x + p.px) / 2 + 4, (p.y + p.py) / 2, p.px, p.py - 9); ctx.stroke();
+    }
+    ctx.fillStyle = '#6fa04a';   // feuille
+    ctx.beginPath(); ctx.ellipse(p.px + 5, p.py - 10, 5, 2.4, -0.6, 0, Math.PI * 2); ctx.fill();
+    const pulse = 1 + Math.sin(p.t * 4) * 0.08;
+    const halo = ctx.createRadialGradient(p.px, p.py, 2, p.px, p.py, 22 * pulse);
+    halo.addColorStop(0, 'rgba(255,230,120,0.55)'); halo.addColorStop(1, 'rgba(255,230,120,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(p.px, p.py, 22 * pulse, 0, Math.PI * 2); ctx.fill();
+    const g = ctx.createRadialGradient(p.px + 3, p.py - 3, 1, p.px, p.py, 10);
+    g.addColorStop(0, '#fff6c2'); g.addColorStop(0.45, '#ffd34a'); g.addColorStop(1, '#c47f16');
+    ctx.fillStyle = g;
+    ctx.beginPath();   // forme de figue : arrondie en bas, pointue vers la tige
+    ctx.moveTo(p.px, p.py - 10);
+    ctx.bezierCurveTo(p.px + 11, p.py - 4, p.px + 10, p.py + 9, p.px, p.py + 9);
+    ctx.bezierCurveTo(p.px - 10, p.py + 9, p.px - 11, p.py - 4, p.px, p.py - 10);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(120,70,10,0.6)'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = '#ffffff';   // étincelle
+    const sp = 1.5 + Math.abs(Math.sin(p.t * 3)) * 1.5;
+    ctx.beginPath(); ctx.moveTo(p.px + 4, p.py - 4 - sp); ctx.lineTo(p.px + 4.8, p.py - 4); ctx.lineTo(p.px + 4, p.py - 4 + sp); ctx.lineTo(p.px + 3.2, p.py - 4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  // Projectiles en ondes d'écholocalisation : des arcs qui s'ouvrent vers l'avant et s'élargissent en avançant
+  function drawSpits() {
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const s of spits) {
+      const age = 1.6 - s.life;
+      const sap = s.kind === 'sap';
+      const R = 9 + s.r * 1.6 + Math.min(age, 0.6) * 16;        // l'onde s'élargit en avançant
+      const span = 0.75 + Math.sin(time * 30 + s.spin) * 0.05;  // léger frémissement « magnétique »
+      const col = sap ? [214, 255, 120] : [190, 235, 255];
+      ctx.shadowColor = rgb(col, 0.9);
+      ctx.shadowBlur = sap ? 10 : 6;
+      // trois arcs concentriques : le front, puis deux échos qui s'estompent
+      for (let k = 0; k < 3; k++) {
+        const rr = R - k * 5;
+        if (rr <= 2) continue;
+        ctx.strokeStyle = rgb(k === 0 ? mix(col, [255, 255, 255], 0.5) : col, [0.95, 0.55, 0.28][k]);
+        ctx.lineWidth = (sap ? 3.2 : 2.4) * (1 - k * 0.25) * (s.r > 10 ? 1.6 : 1);   // la grande onde est plus épaisse
+        ctx.beginPath();
+        ctx.arc(s.x - k * 7 - rr, s.y, rr, -span, span);   // les échos suivent le front de l'onde
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // ---------- Gloub, esprit-chauve-souris (style chibi) ----------
+  // Construit comme une vraie sphère vue de trois quarts : yeux, oreilles, joues, pieds et ailes sont
+  // placés sur le corps en 3D puis projetés, pour que tout reste cohérent, même quand les ailes battent.
+  // Comme chez Ghibli : le personnage a un contour, le décor n'en a pas.
+  const BAT = [40, 46, 60], BAT_RIM = [130, 196, 172], INK = '#120e18', EAR_PINK = [240, 140, 162];
+  const YAW = 0.45, CYAW = Math.cos(YAW), SYAW = Math.sin(YAW);   // tourné d'environ 25° vers la droite
+  // Repère du personnage : x = son flanc (négatif = côté tourné vers nous), y = haut, z = avant
+  function proj(p, R) { return { x: (p[0] * CYAW + p[2] * SYAW) * R, y: -p[1] * R, z: -p[0] * SYAW + p[2] * CYAW }; }
+  function sph(phi, lam) { return [Math.cos(lam) * Math.sin(phi), Math.sin(lam), Math.cos(lam) * Math.cos(phi)]; }
+
+  // Aile de chauve-souris kawaii : haute et large, pointe en haut, gros festons arrondis en bas.
+  // Dessinée dans un plan (u = vers l'extérieur, v = vers le bas) attaché à l'épaule, puis projetée en 3D.
+  const WING_PTS = { top: [0.82, -0.78], tip: [1.0, 0.08], f2: [0.66, 0.48], f3: [0.33, 0.58], low: [0.02, 0.42] };
+  function wingShape(side, alpha, R) {
+    const root = [side * 0.78, 0.1, -0.2];
+    const ca = Math.cos(alpha), sa = Math.sin(alpha);
+    const U = [side * ca, sa, -0.6], V = [side * sa, -ca, -0.25];   // le battement fait tourner tout le plan
+    const Ls = side > 0 ? 0.95 : 1.15, Lh = side > 0 ? 0.85 : 1.0;   // l'aile éloignée paraît plus petite
+    const at = (u, v) => proj([0, 1, 2].map(i => root[i] + U[i] * u * Ls + V[i] * v * Lh), R);
+    const P = {};
+    for (const k in WING_PTS) P[k] = at(WING_PTS[k][0], WING_PTS[k][1]);
+    return {
+      root: at(0, -0.22), base: at(0, 0.05), center: at(0.38, 0.12), P,
+      lead: at(0.3, -0.92),       // bord d'attaque bombé vers le haut
+      round: at(1.06, -0.4),      // arrondi entre la pointe haute et la pointe extérieure
+    };
+  }
+  function drawWing(wg, far) {
+    const base = far ? mix(BAT, SHADOW, 0.35) : BAT;
+    const { P, root, center } = wg;
+    const scallop = (a, b) => {
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      ctx.quadraticCurveTo(mx + (center.x - mx) * 0.32, my + (center.y - my) * 0.32, b.x, b.y);
+    };
+    ctx.beginPath();
+    ctx.moveTo(root.x, root.y);
+    ctx.quadraticCurveTo(wg.lead.x, wg.lead.y, P.top.x, P.top.y);
+    ctx.quadraticCurveTo(wg.round.x, wg.round.y, P.tip.x, P.tip.y);
+    scallop(P.tip, P.f2);
+    scallop(P.f2, P.f3);
+    scallop(P.f3, P.low);
+    ctx.closePath();
+    const gr = ctx.createLinearGradient(P.top.x, P.top.y, wg.base.x + 0.01, wg.base.y + 0.01);
+    gr.addColorStop(0, rgb(mix(base, SHADOW, 0.2)));
+    gr.addColorStop(1, rgb(mix(base, [104, 112, 142], far ? 0.15 : 0.45)));
+    ctx.fillStyle = gr;
+    ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.8; ctx.lineJoin = 'round';
+    ctx.stroke();
+    // Doigts : de l'épaule vers chaque pointe
+    ctx.strokeStyle = rgb(mix(base, SHADOW, 0.55)); ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const k of ['top', 'tip', 'f2', 'f3']) {
+      const q = P[k];
+      ctx.moveTo(wg.base.x, wg.base.y);
+      ctx.lineTo(wg.base.x + (q.x - wg.base.x) * 0.88, wg.base.y + (q.y - wg.base.y) * 0.88);
+    }
+    ctx.stroke();
+    if (!far) {   // reflet sur le bord d'attaque, côté soleil
+      ctx.strokeStyle = rgb(BAT_RIM, 0.5); ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(root.x, root.y + 1.5);
+      ctx.quadraticCurveTo(wg.lead.x, wg.lead.y + 2, P.top.x, P.top.y + 2); ctx.stroke();
+    }
+  }
+
+  // Oreille : base posée sur le haut de la sphère, pointe vers le haut et l'extérieur
+  function drawEar(side, R) {
+    const phi = side * 0.72, b = sph(phi, 0.92).map(v => v * 0.92);
+    const t = [Math.cos(phi), 0, -Math.sin(phi)], w = 0.34;
+    const wob = Math.sin(time * 5 + side) * 0.03;
+    const tip = proj([b[0] + side * 0.28, b[1] + 1.0, b[2] - 0.12 + wob], R);
+    const A = proj([b[0] - t[0] * w, b[1], b[2] - t[2] * w], R);
+    const B = proj([b[0] + t[0] * w, b[1], b[2] + t[2] * w], R);
+    const shape = (a, bb, tp, k) => {
+      const cx = (a.x + bb.x) / 2, cy = (a.y + bb.y) / 2;
+      const m1x = (a.x + tp.x) / 2, m1y = (a.y + tp.y) / 2, m2x = (bb.x + tp.x) / 2, m2y = (bb.y + tp.y) / 2;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.quadraticCurveTo(m1x + (m1x - cx) * k, m1y + (m1y - cy) * k, tp.x, tp.y);
+      ctx.quadraticCurveTo(m2x + (m2x - cx) * k, m2y + (m2y - cy) * k, bb.x, bb.y);
+      ctx.closePath();
+    };
+    const near = side < 0;
+    shape(A, B, tip, 0.35);
+    ctx.fillStyle = rgb(near ? BAT : mix(BAT, SHADOW, 0.25));
+    ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 1.8;
+    ctx.stroke();
+    // L'ouverture regarde vers l'avant : bien visible côté proche, étroite côté éloigné
+    const open = clamp(-(side * 0.4) * SYAW + 0.9 * CYAW, 0, 1);
+    const c = { x: (A.x + B.x + tip.x) / 3, y: (A.y + B.y + tip.y) / 3 };
+    const sh = (p, k) => ({ x: c.x + (p.x - c.x) * k, y: c.y + (p.y - c.y) * k });
+    const k = 0.25 + 0.4 * open;
+    shape(sh(A, k), sh(B, k), sh(tip, 0.72), 0.3);
+    ctx.fillStyle = rgb(near ? EAR_PINK : mix(EAR_PINK, SHADOW, 0.35));
+    ctx.fill();
+  }
+
+  // Œil chibi posé sur la sphère : il s'aplatit quand il tourne vers le bord
+  function drawEye(phi, lam, r, R) {
+    const p = proj(sph(phi, lam), R);
+    if (p.z < 0.08) return;
+    const rx = r * (0.3 + 0.7 * p.z), ry = r * 1.12;
+    if (player.chew > 0) {   // yeux plissés de bonheur : ^ ^
+      ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p.x - rx * 0.85, p.y + ry * 0.2); ctx.quadraticCurveTo(p.x, p.y - ry * 0.7, p.x + rx * 0.85, p.y + ry * 0.2); ctx.stroke();
+      return;
+    }
+    ctx.fillStyle = '#fdfbf4'; ctx.strokeStyle = INK; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    const ix = p.x + rx * 0.1, iy = p.y + ry * 0.05, irx = rx * 0.84, iry = ry * 0.86;
+    const gi = ctx.createLinearGradient(0, iy - iry, 0, iy + iry);
+    gi.addColorStop(0, '#120c1a');
+    gi.addColorStop(0.62, '#201a32');
+    gi.addColorStop(1, '#3f9a80');
+    ctx.fillStyle = gi;
+    ctx.beginPath(); ctx.ellipse(ix, iy, irx, iry, 0, 0, Math.PI * 2); ctx.fill();
+    const s = Math.min(irx, iry);
+    ctx.fillStyle = '#ffffff';
+    blobs([[ix + irx * 0.3, iy - iry * 0.38, s * 0.4], [ix - irx * 0.36, iy + iry * 0.38, s * 0.18],
+           [ix + irx * 0.46, iy + iry * 0.32, s * 0.1], [ix - irx * 0.1, iy - iry * 0.6, s * 0.09]]);
+  }
+
+  // Élément plat posé sur la sphère (joue, ventre) : aplati selon l'orientation
+  function surfaceEllipse(phi, lam, rx, ry, color, R) {
+    const p = proj(sph(phi, lam), R);
+    if (p.z < 0.05) return;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y, rx * (0.3 + 0.7 * p.z), ry, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Petite patte kawaii : un coussinet rond et trois minuscules griffes
+  function drawFoot(side, R) {
+    const p = proj(sph(side * 0.55, -1.2), R);
+    const far = side > 0;
+    ctx.save();
+    ctx.translate(p.x, p.y + 1);
+    ctx.fillStyle = far ? '#b4aabb' : '#f6eef6';
+    ctx.beginPath();
+    for (const dx of [-2.5, 0, 2.5]) { ctx.moveTo(dx - 1.3, 1.5); ctx.quadraticCurveTo(dx - 0.2, 4.5, dx - 0.6, 6); ctx.quadraticCurveTo(dx + 1, 4, dx + 1.3, 1.5); ctx.closePath(); }
+    ctx.fill();
+    ctx.fillStyle = rgb(mix(BAT, SHADOW, far ? 0.45 : 0.2)); ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(0, 0, 4, 3.2, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawGloub() {
+    const px = W * PLAYER_X_RATIO, py = player.y;
+    const w = player.belly / BELLY_MAX, R = PLAYER_R, flap = player.flap;
+    // Coup d'aile à chaque tap, plus un battement rapide et continu entre deux taps
+    const flutter = state === 'menu' ? 0 : Math.sin(time * 26) * 0.32 * (1 - flap);
+    const alpha = -0.15 + 1.1 * flap + flutter;
+
+    // Halo d'esprit
+    const halo = ctx.createRadialGradient(px, py, R * 0.4, px, py, R * 2.8);
+    halo.addColorStop(0, 'rgba(225,255,205,0.24)');
+    halo.addColorStop(1, 'rgba(225,255,205,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(px - R * 3, py - R * 3, R * 6, R * 6);
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(player.tilt * 0.6);
+    ctx.scale(1.35, 1.35);
+    const gp = Math.sin(player.gulp * Math.PI);   // gloups : il gonfle puis reprend sa forme
+    ctx.scale(1 + 0.28 * gp, 1 - 0.16 * gp);
+
+    // Derrière le corps : aile et pied du côté éloigné
+    drawWing(wingShape(1, alpha, R), true);
+    drawFoot(1, R);
+
+    // Corps-tête sphérique, éclairé en haut à droite ; il s'arrondit avec la pollution
+    const bw = R * (1 + w * 0.08), bh = R * (1 + w * 0.1);
+    const gb = ctx.createRadialGradient(R * 0.35, -R * 0.4, R * 0.1, 0, 0, R * 1.1);
+    gb.addColorStop(0, rgb(mix(BAT, BAT_RIM, 0.35)));
+    gb.addColorStop(0.55, rgb(BAT));
+    gb.addColorStop(1, rgb(mix(BAT, SHADOW, 0.45)));
+    ctx.fillStyle = gb;
+    ctx.beginPath(); ctx.ellipse(0, 0, bw, bh, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Tout ce qui est peint sur la sphère est découpé par sa silhouette
+    ctx.save();
+    ctx.clip();
+    surfaceEllipse(0.05, -0.75, R * 0.55 * (1 + w * 0.35), R * 0.26 * (1 + w * 0.5), rgb(mix([66, 76, 96], [124, 86, 146], w), 0.9), R);
+    ctx.fillStyle = rgb(BAT_RIM, 0.75);
+    for (const [ph, la, s] of [[-0.15, 0.62, 1.3], [0.1, 0.72, 1], [0.3, 0.6, 0.9]]) {
+      const p = proj(sph(ph, la), R);
+      if (p.z > 0.1) blobs([[p.x, p.y, s]]);
+    }
+    const blush = rgb(mix([255, 140, 160], [150, 210, 60], w), 0.75);
+    surfaceEllipse(-0.85, -0.36, R * 0.2 + w * 4, R * 0.11 + w * 2.5, blush, R);
+    surfaceEllipse(0.85, -0.36, R * 0.2 + w * 4, R * 0.11 + w * 2.5, blush, R);
+    drawEye(-0.42, -0.04, R * 0.33, R);
+    drawEye(0.42, -0.04, R * 0.33, R);
+    // Museau et bouche « :3 », grande ouverte quand il crache
+    const nose = proj(sph(0, -0.18), R), m = proj(sph(0, -0.36), R), sq = 0.4 + 0.6 * m.z;
+    ctx.fillStyle = INK;
+    ctx.beginPath(); ctx.moveTo(nose.x - 1.7 * sq, nose.y - 1); ctx.lineTo(nose.x + 1.7 * sq, nose.y - 1); ctx.lineTo(nose.x, nose.y + 1.1); ctx.closePath(); ctx.fill();
+    if (player.mouth > 0.15 || player.wide > 0.05) {
+      const wd = player.wide, mo = Math.max(player.mouth, wd);
+      const mrx = (2.4 + mo * 1.8 + wd * 4.5) * sq, mry = 1.4 + mo * 2.8 + wd * 5.5, mcy = m.y + 1 + wd * 2.5;
+      ctx.fillStyle = '#2a1420';
+      ctx.beginPath(); ctx.ellipse(m.x, mcy, mrx, mry, 0, 0, Math.PI * 2); ctx.fill();
+      if (wd > 0.05) { ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.stroke(); }
+      ctx.fillStyle = '#e8768e';   // langue
+      ctx.beginPath(); ctx.ellipse(m.x, mcy + mry * 0.55, mrx * 0.6, mry * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+      if (wd > 0.05) {   // deux petits crocs de chauve-souris
+        ctx.fillStyle = '#fbf6ee';
+        for (const sx of [-0.45, 0.45]) {
+          const fx = m.x + sx * mrx;
+          ctx.beginPath(); ctx.moveTo(fx - 1.3, mcy - mry * 0.92); ctx.lineTo(fx, mcy - mry * 0.92 + 2.4 * wd + 0.6); ctx.lineTo(fx + 1.3, mcy - mry * 0.92); ctx.closePath(); ctx.fill();
+        }
+      }
+    } else {
+      ctx.strokeStyle = INK; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(m.x - 3.3 * sq, m.y); ctx.quadraticCurveTo(m.x - 1.65 * sq, m.y + 2.6, m.x, m.y);
+      ctx.quadraticCurveTo(m.x + 1.65 * sq, m.y + 2.6, m.x + 3.3 * sq, m.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Contour et liseré de lumière côté soleil
+    ctx.strokeStyle = INK; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.ellipse(0, 0, bw, bh, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = rgb(BAT_RIM, 0.5); ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(0, 0, bw - 2.2, bh - 2.2, 0, -1.5, -0.55); ctx.stroke();
+
+    // Oreilles et houppette en feuilles (rappel de son origine, la première fleur saine)
+    drawEar(1, R);
+    const top = proj(sph(0, 1.2), R);
+    ctx.save();
+    ctx.translate(top.x, top.y);
+    ctx.rotate(Math.sin(time * 4) * 0.15 - player.vy / 2000);
+    ctx.fillStyle = '#6cc070'; ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
+    for (const [a, len] of [[-0.6, 9], [0.1, 12], [0.7, 8]]) {
+      ctx.save();
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.quadraticCurveTo(-len * 0.45, -len * 0.6, 0, -len);
+      ctx.quadraticCurveTo(len * 0.4, -len * 0.5, 0, 0);
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+    drawEar(-1, R);
+
+    // Devant le corps : pied et aile du côté proche
+    drawFoot(-1, R);
+    drawWing(wingShape(-1, alpha, R), false);
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+      ctx.fillStyle = p.color;
+      if (p.shape === 'leaf') {
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.6, p.r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.fillRect(p.x - p.r / 2, p.y - p.r / 2, p.r, p.r);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawTexts() {
+    ctx.save();
+    ctx.font = '800 20px Nunito, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    for (const t of texts) {
+      ctx.globalAlpha = clamp(t.life * 1.5, 0, 1);
+      ctx.strokeStyle = 'rgba(0,0,0,.55)';
+      ctx.strokeText(t.txt, t.x, t.y);
+      ctx.fillStyle = t.color;
+      ctx.fillText(t.txt, t.x, t.y);
+    }
+    ctx.restore();
+  }
+
+  function drawHUD() {
+    ctx.save();
+    ctx.textBaseline = 'top';
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 6;
+    ctx.fillStyle = '#fff';
+    const L = 16 + SAFE.l, R = W - 16 - SAFE.r, T = 14 + SAFE.t;
+    ctx.font = '800 18px Nunito, system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Score ' + score, L, T);
+    ctx.font = '800 13px Nunito, system-ui, sans-serif';
+    ctx.fillText('Ventre', L, T + 28);
+    ctx.textAlign = 'right';
+    ctx.font = '800 14px Nunito, system-ui, sans-serif';
+    ctx.fillText('Monde guéri ' + Math.round(health * 100) + ' %', R, T);
+    ctx.shadowBlur = 0;
+
+    // Jauge du ventre
+    const w = player.belly / BELLY_MAX;
+    const bx = L + 52, by = T + 29, bw = 100;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(bx, by, bw, 11);
+    if (w > 0) { ctx.fillStyle = rgb(mix([216, 255, 106], [160, 90, 190], w)); ctx.fillRect(bx, by, bw * w, 11); }
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, 10);
+    ctx.beginPath();
+    for (let k = 1; k < 4; k++) { ctx.moveTo(bx + (bw * k) / 4 + 0.5, by); ctx.lineTo(bx + (bw * k) / 4 + 0.5, by + 11); }
+    ctx.stroke();
+    const lvl = sapLevel();
+    if (lvl) {
+      ctx.font = '800 12px Nunito, system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#fff1a8';
+      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5;
+      ctx.fillText(LEVELS[lvl].name.replace(' !', ''), bx, by + 15);
+      ctx.shadowBlur = 0;
+    }
+
+    // Jauge de guérison
+    const hx = R - 120, hy = T + 23;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(hx, hy, 120, 8);
+    ctx.fillStyle = '#7be07b'; ctx.fillRect(hx, hy, 120 * health, 8);
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.save();
+    if (shakeT > 0) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+    drawSky();
+    drawHills();
+    drawGroundPlane();
+    drawLayer(layers[0]);
+    drawProps(0, 0.28);
+    drawLayer(layers[1]);
+    drawProps(0.28, 0.6);
+    drawLayer(layers[2]);
+    drawProps(0.6, 2);
+    drawHaze();
+    drawMotes();
+    drawWinds();
+    for (const f of flowers) drawFlower(f);
+    drawWalls();
+    for (const p of pickups) drawPickup(p);
+    drawTraps();
+    drawBugs();
+    drawSpits();
+    drawBeams();
+    if (player.alive && !(player.inv > 0 && Math.floor(time * 14) % 2)) drawGloub();
+    drawParticles();
+    drawSpirits();
+    drawGround();
+    drawForeground();
+    drawTexts();
+    ctx.restore();
+    drawPaper();
+    if (state === 'play') drawHUD();   // sur l'écran de fin, la carte de scores prend le relais
+  }
+
+  // ---------- Boucle ----------
+  function loop(t) {
+    const dt = Math.min((t - lastTime) / 1000 || 0, 1 / 30);
+    lastTime = t;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(t => { lastTime = t; loop(t); });
+
+  // Lecture seule, pour les tests
+  window.__gloub = () => ({ state, score, health, belly: player.belly, y: player.y, vy: player.vy, H, cells: cells.length, flowers: flowers.length });
+})();
+</script>
+<script>
+// ---------- Application installable (PWA) ----------
+// Le service worker met le jeu en cache pour qu'il tourne hors ligne. Il ne marche qu'en https (ou sur localhost),
+// pas en ouvrant le fichier directement (file://) : le jeu reste jouable, simplement sans installation.
+(() => {
+  'use strict';
+  const web = location.protocol === 'https:' || location.protocol === 'http:';
+  if (web && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+
+  const installBtn = document.getElementById('install');
+  const iosHint = document.getElementById('ios-hint');
+  const installed = () => matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+  // Le bouton ne doit pas lancer la partie : on bloque l'appui avant qu'il n'atteigne l'écran titre
+  for (const el of [installBtn, iosHint]) el.addEventListener('pointerdown', e => e.stopPropagation());
+
+  // Chrome, Edge, Android : le navigateur propose l'installation, on l'offre avec notre propre bouton
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    installBtn.hidden = false;
+  });
+  installBtn.addEventListener('click', async () => {
+    if (!deferred) return;
+    installBtn.hidden = true;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch (_) {}
+    deferred = null;
+  });
+  window.addEventListener('appinstalled', () => { installBtn.hidden = true; deferred = null; });
+
+  // iPhone et iPad : pas de bouton possible, on explique le geste
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (web && ios && !installed()) iosHint.hidden = false;
+})();
+</script>
+</body>
+</html>
