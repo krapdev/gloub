@@ -23,6 +23,13 @@ Un esprit de la forêt chauve-souris. Il vole en battant des ailes, émet des on
 - **Toucher un moustique** fait perdre une mûre.
 - **Design** : abdomen vert toxique, trompe-aiguille qui goutte, yeux rouges, ailes déchirées, gouttelettes toxiques dans leur sillage.
 
+### Moustique libéré (allié)
+
+- **D'où il vient** : tous les 8 moustiques abattus, l'un d'eux est guéri de la corruption végétale et rejoint Gloub.
+- **Effet** : une **petite mitraillette** : il tire par l'aiguille des rafales de dards de nectar dorés, et abat les moustiques qu'il touche. Deux au plus ; un choc en fait fuir un.
+- **Design** : le même dessin que le moustique de suie, retourné vers Gloub ; seules les couleurs changent (vert d'eau lumineux, yeux vert sève, goutte de nectar). Détails dans la [direction artistique](02-direction-artistique.md).
+- **Pourquoi** : c'est le même insecte, mais purifié. La règle reste cohérente : les insectes corrompus attaquent, et Gloub peut les guérir.
+
 ### Les obstacles
 
 | Obstacle | Rôle |
@@ -52,7 +59,6 @@ Ces idées ont été évoquées pendant la conception. Elles restent à concevoi
 | Idée | Type | Idée de départ |
 | --- | --- | --- |
 | **Corbeaux de goudron** | Ennemi | Des oiseaux englués de pollution, un ennemi volant plus gros que les moustiques. |
-| **Esprit compagnon** | Allié | Un petit esprit de la forêt qui accompagne Gloub et l'aide. Il faut rester dans la règle « les fruits aident, les insectes attaquent ». |
 | **Immeuble qui s'effondre** | Événement de décor | Une menace qui vient de l'arrière-plan : une tour en ruine bascule vers le premier plan et barre le chemin. |
 | **Retour des pièges** | Obstacles | Réactiver la plante carnivore et les épines dans certains murs, une fois le contrôle bien calé. |
 

@@ -40,19 +40,18 @@ Le tir est **automatique et toujours droit devant**, avec un coup toutes les 0,1
 
 ## Le ventre et les niveaux de puissance
 
-- Chaque **mûre** gobée remplit le ventre d'un quart (25 points sur 100).
-- Le niveau de tir dépend du nombre de quarts pleins.
-- Le tir **consomme** le ventre : la puissance redescend toute seule, ce qui empêche de tout balayer indéfiniment.
+- Chaque **mûre** gobée fait monter le tir **d'un niveau** (jusqu'au niveau 4).
+- Chaque **choc** fait perdre **un niveau**.
+- La puissance **ne baisse pas avec le temps** : on garde son niveau tant qu'on n'est pas touché. Seule la méga-onde est temporaire.
+- **Chaque évolution est annoncée** par un grand bandeau au centre de l'écran : en vert quand on monte (« Sève ×2 ! », niveau 2), en doré pour la méga-onde, en rose quand on perd un niveau.
 
-| Ventre | Niveau | Onde | Dégâts | Traverse | Durée d'une mûre |
-| --- | --- | --- | --- | --- | --- |
-| vide | **Salive** | petite onde | 1 | 1 cellule | — |
-| 1 mûre | **Sève** | onde de sève | 4 | 2 | ≈ 5,4 s |
-| 2 mûres | **Sève ×2** | deux ondes parallèles, plus rapides | 4 | 2 | ≈ 4,9 s |
-| 3 mûres | **Grande onde** | onde large | 4 | 3 | ≈ 4,2 s |
-| 4 mûres | **Méga-onde !** | grande onde + méga-onde | 4 | 3 | ≈ 2,7 s |
-
-Un ventre plein dure donc environ 17 secondes de tir.
+| Ventre | Niveau | Onde | Dégâts | Traverse |
+| --- | --- | --- | --- | --- |
+| vide | **Salive** | petite onde | 1 | 1 cellule |
+| 1 mûre | **Sève** | onde de sève | 4 | 2 |
+| 2 mûres | **Sève ×2** | deux ondes parallèles, plus rapides | 4 | 2 |
+| 3 mûres | **Grande onde** | onde large | 4 | 3 |
+| 4 mûres | **Méga-onde !** | grande onde + méga-onde | 4 | 3 |
 
 ### La méga-onde
 
@@ -60,7 +59,8 @@ Un ventre plein dure donc environ 17 secondes de tir.
 - Elle balaie une bande de 170 px de haut sur toute la largeur de l'écran. Elle purifie toutes les ronces, rochers et bulbes qu'elle croise, et tue les moustiques.
 - Elle **traverse les racines sans les casser** : on doit toujours passer par l'ouverture.
 - Un flash blanc accompagne le tir.
-- On peut en tirer 2 ou 3 avant que le ventre redescende au niveau inférieur.
+- **Elle est temporaire** : elle dure 8 s (une jauge dorée sous le ventre montre le temps restant et clignote à la fin), puis Gloub redescend à la grande onde. Une mûre gobée pendant la méga-onde la recharge à 8 s.
+- Elle se répète toutes les 1,1 s pendant ce temps.
 
 ### Salive et sève : arracher ou purifier
 
@@ -69,10 +69,17 @@ Un ventre plein dure donc environ 17 secondes de tir.
 
 ## Les chocs
 
-- Un choc contre une cellule, le sol ou un moustique fait **recracher une mûre**. Le ventre perd un quart et le niveau baisse d'un cran.
+- Un choc contre une cellule, le sol ou un moustique fait **recracher une mûre** : le tir perd un niveau.
 - Le choc dégage les ronces et les moustiques autour de Gloub, sauf les racines, et affiche « Beurk ! ».
 - Gloub est ensuite **invulnérable 1,4 s** (il clignote).
 - **Le ventre vide, le choc est fatal** : Gloub tombe et la partie est finie.
+
+## Moustiques libérés
+
+- Chaque moustique abattu remplit la jauge « Libérés » (8 cases, sous le ventre).
+- Jauge pleine : un **moustique libéré** rejoint Gloub, annoncé par un bandeau. Guéri de la corruption, il vole en léger différé au-dessus ou en dessous de Gloub, sert de **petite mitraillette** : par l'aiguille, il tire des rafales de 6 dards de nectar (un toutes les 0,075 s, puis une pause de 0,45 s), rapides et un peu dispersés, d'un point de dégât chacun. Il abat aussi les moustiques qu'il touche.
+- Deux alliés au plus en même temps. Avec deux alliés, une jauge pleine rapporte 50 points.
+- À chaque choc, un allié prend peur et s'envole.
 
 ## Score et guérison
 

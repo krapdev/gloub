@@ -19,12 +19,42 @@
 | Personnage | Projection 3D de Gloub (`proj`, `sph`), ailes (`wingShape`), `drawGloub()`. |
 | Rendu | `render()`, qui dessine dans l'ordre : ciel, collines, sol, 3 plans de décor + objets, brume, murs, bonus, ennemis, ondes, Gloub, particules, premier plan, papier. Puis l'interface du jeu (`drawHUD`). |
 
+### Taille d'écran
+
+- **Le monde est calculé dans une taille logique fixe** : 620 unités de haut, et au moins 760 de large. L'écran l'affiche à l'échelle (`VS`, pixels CSS par unité). Un téléphone voit donc la même scène qu'un ordinateur, en plus petit, au lieu d'une vue zoomée.
+- **Le HUD et les annonces sont dessinés en pixels d'écran** : ils gardent la même taille lisible quel que soit l'écran.
+- Les zones sûres (encoche) sont lues en pixels d'écran et converties en unités logiques là où le monde en a besoin.
+- Téléphone tenu en portrait : l'écran titre conseille de passer en paysage.
+
 ### Performances
 
-- **Décor pré-dessiné** : tours, ruines, arbres, buissons et objets au sol sont peints une fois dans des images (en version malade et guérie), puis simplement recopiés et fondus selon `health`.
-- **Pas de rotation** des images de décor.
-- **Pas d'arrondi au pixel** des positions de décor : l'arrondi faisait trembler le fond (« le décor saute sur place »).
-- **Densité de pixels** plafonnée à 2.
+Sur téléphone, le coût vient presque entièrement du **nombre de pixels peints**. Le script lui-même prend 2 à 3 ms par image.
+
+- **Finesse de rendu adaptative** (`PR`, pixels réels par pixel CSS) :
+  - au départ, la densité de l'écran, plafonnée à 2 et limitée à environ 1 million de pixels sur écran tactile (2,4 millions sinon) ;
+  - si le jeu passe sous 48 images/s, la finesse baisse par paliers (2 → 1,75 → 1,5 → 1,25 → 1) ;
+  - si ça ne suffit pas, les effets d'ambiance sont retirés (grain du papier, brume, poussières, traînées de vent, rayons) ;
+  - en dernier recours, la finesse descend jusqu'à 0,7 ;
+  - un appareil bridé à 30 images/s (mode économie d'énergie) n'est pas dégradé sous 1.
+- **Caches** :
+  - le dégradé du ciel et le halo du soleil, dans une petite image étirée, refaite quand la guérison change ;
+  - les nuages, chacun dans sa petite image ;
+  - le mélange « malade / guéri » de chaque élément de décor, à la finesse de l'écran : une seule copie d'image par élément ;
+  - la haie de ronces du premier plan, dans une longue bande refaite toutes les quelques secondes ;
+  - le grain du papier et le vignettage, peints à la taille réelle du canvas et recopiés pixel pour pixel.
+- **Aucun flou calculé à chaque image** (`shadowBlur`) : les lueurs (ondes, dards, méga-onde, bulbes, moustiques, esprits) sont faites d'un trait large et transparent ou d'un halo pré-dessiné (`glow`). Le texte du HUD est cerné d'un contour au lieu d'une ombre floue.
+- **Bandes du sol** : seules celles qui se voient sont tracées (W × 2,4 au lieu de W × 6). Elles coûtaient à elles seules près d'un tiers du rendu.
+- **Décor pré-dessiné** : tours, ruines, arbres, buissons et objets au sol sont peints une fois (version malade et guérie).
+- **Pas de rotation** des images de décor, **pas d'arrondi au pixel** des positions (l'arrondi faisait trembler le fond).
+
+Mesures dans un navigateur de test sans carte graphique, au format d'un téléphone en paysage (844 × 390) :
+
+| Finesse de rendu | Avant | Après |
+| --- | --- | --- |
+| 2 (téléphone récent) | 16 images/s | 29 images/s |
+| 1 | 39 images/s | 60 images/s |
+
+Avec la finesse adaptative, le jeu se stabilise vers 55 images/s dans ce même navigateur. Un vrai téléphone, avec sa carte graphique, fait mieux.
 
 ## Application installable (PWA)
 

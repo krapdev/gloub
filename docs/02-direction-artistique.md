@@ -66,6 +66,21 @@ Le monde malade reste beau : c'est une aquarelle mélancolique, pas un décor «
 - **Effrayants et toxiques** : abdomen vert toxique, trompe-aiguille qui goutte, yeux rouges, ailes déchirées.
 - Leur arrivée est annoncée par des **chevrons rouges** clignotants sur le bord droit de l'écran.
 
+## Le moustique libéré (allié)
+
+- **Exactement le même dessin que le moustique de suie**, pour qu'on le reconnaisse tout de suite, mais tourné vers la droite, du côté de Gloub.
+- **Seules les couleurs changent** : la guérison se lit par la palette.
+
+| Partie | Moustique de suie | Moustique libéré |
+| --- | --- | --- |
+| Abdomen | vert poison qui luit | vert d'eau lumineux, cœur blanc |
+| Tête et thorax | noir de suie | vert sauge profond |
+| Yeux | rouges, sourcils froncés | vert sève, regard apaisé |
+| Goutte au bout de l'aiguille | poison vert | nectar doré |
+| Ailes | grises et ternes | blanc d'eau translucide |
+| Autour de lui | gouttes toxiques | petit halo vert d'eau et traînée de pollen |
+| Tir | aucun | rafales de dards de nectar dorés cernés d'encre, avec un éclair au bout de l'aiguille et un léger recul |
+
 ## Interface
 
 - **Matière** : carte en papier crème (`#F6EEDD`), cernée d'un trait d'encre violet-noir (`#241A2E`), légèrement inclinée.

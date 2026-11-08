@@ -21,7 +21,7 @@ Le jeu raconte cette guérison sans texte : la jauge « Monde guéri » pilote t
 ## Règle de cohérence de l'univers
 
 - **Les fruits aident Gloub** (ils le renforcent).
-- **Les insectes l'attaquent** (ils sont les créatures de la pollution).
+- **Les insectes l'attaquent** (ils sont les créatures de la pollution). Mais Gloub peut les **libérer** de la corruption : un moustique guéri devient son allié.
 - **Les ronces et les racines sont le terrain** : on les perce, on les contourne.
 
 Toute nouvelle créature ou nouveau bonus doit respecter cette répartition.

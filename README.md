@@ -48,8 +48,8 @@ Quand il y a du réseau, l'application charge toujours la dernière version de `
 - Les colonnes de ronces se cassent avec les ondes. Les **racines** brunes sont incassables : il faut passer par l'ouverture.
 - Les **bulbes** lumineux nichés dans les ronces libèrent des **mûres**. Chaque mûre gobée renforce les ondes :
   salive → sève → sève ×2 → grande onde → **méga-onde**.
-- Les **moustiques de suie** arrivent en nuées (annoncées par des chevrons rouges).
-- Un choc fait perdre une mûre. Le ventre vide, c'est la chute.
+- Les **moustiques de suie** arrivent en nuées (annoncées par des chevrons rouges). Tous les 8 moustiques abattus, l'un d'eux est **libéré** de la corruption et aide Gloub à tirer.
+- Chaque mûre fait monter les ondes d'un niveau, chaque choc en fait perdre un. La puissance ne baisse pas avec le temps, sauf la méga-onde qui dure 8 secondes. Chaque évolution est annoncée à l'écran. Le ventre vide, un choc fait chuter Gloub.
 - Purifier les ronces fait refleurir le monde : le ciel, les arbres et le décor se transforment.
 
 ## Fichiers

@@ -119,6 +119,9 @@
   }
   .ios-hint svg { width: 15px; height: 15px; vertical-align: -2px; }
   [hidden] { display: none !important; }
+  /* Téléphone tenu en portrait : on conseille le paysage, le format du jeu */
+  .rotate-hint { display: none; font-size: 13px; font-weight: 800; color: var(--paper); text-shadow: 0 2px 0 var(--ink), 0 0 8px rgba(36, 26, 46, 0.6); }
+  @media (orientation: portrait) and (pointer: coarse) { .rotate-hint { display: block; } }
 
   /* Écran étroit (téléphone en portrait) : titre en haut, carte en bas, Gloub visible au milieu */
   @media (max-width: 760px), (max-aspect-ratio: 1/1) {
@@ -201,17 +204,18 @@
               <circle cx="11" cy="22" r="3.4"/><circle cx="17" cy="22" r="3.4"/>
             </g>
             <g fill="#e9d2ff"><circle cx="12" cy="11" r="1"/><circle cx="18" cy="11" r="1"/><circle cx="15" cy="16" r="1"/><circle cx="21" cy="16" r="1"/><circle cx="18" cy="21" r="1"/></g>
-          </svg></span><span>Crève les <b>bulbes</b> lumineux des ronces : ils libèrent des <b>mûres</b> qui renforcent tes ondes.</span></li>
+          </svg></span><span>Crève les <b>bulbes</b> lumineux des ronces : ils libèrent des <b>mûres</b>, et chaque mûre fait monter tes ondes d'un niveau. La <b>méga-onde</b> ne dure que quelques secondes.</span></li>
           <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
             <path d="M3 14 L11 15" stroke="#241a2e" stroke-width="1.8" stroke-linecap="round"/>
             <ellipse cx="20" cy="16" rx="7" ry="4.2" fill="#8fd62a" stroke="#241a2e" stroke-width="2" transform="rotate(18 20 16)"/>
             <circle cx="12.5" cy="14" r="3.6" fill="#2b2430" stroke="#241a2e" stroke-width="1.6"/>
             <circle cx="11.6" cy="13.4" r="1.3" fill="#ff2a40"/>
             <path d="M15 11 Q17 4 22 6 M17 11 Q21 6 26 9" stroke="#241a2e" stroke-width="1.4" fill="rgba(200,210,190,0.6)"/>
-          </svg></span><span>Gare aux <b>moustiques</b> et aux <b>racines</b> : un choc te fait perdre une mûre, et le ventre vide, c'est la chute.</span></li>
+          </svg></span><span>Gare aux <b>moustiques</b> et aux <b>racines</b> : un choc te fait perdre un niveau, et le ventre vide, c'est la chute. Abats 8 moustiques pour en <b>libérer</b> un, qui t'aidera.</span></li>
         </ul>
       </div>
       <div id="ov-cta">Tape pour t'envoler</div>
+      <div class="rotate-hint">Tourne ton téléphone pour jouer en grand</div>
       <button id="install" type="button" hidden><svg viewBox="0 0 20 20" aria-hidden="true">
         <path d="M10 3 V12 M6 8.5 L10 12.5 L14 8.5" stroke="#241a2e" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M4 14.5 V16.5 H16 V14.5" stroke="#4f8a30" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -234,7 +238,37 @@
   const ovText = document.getElementById('ov-text');
   const ovCta = document.getElementById('ov-cta');
 
-  let W = 0, H = 0, DPR = 1;
+  // ---------- Taille d'écran et qualité ----------
+  // Le monde est calculé dans une taille logique : VIEW_H unités de haut, au moins MIN_VIEW_W de large.
+  // L'écran l'affiche à l'échelle : un téléphone voit la même scène qu'un ordinateur, simplement plus petite.
+  const VIEW_H = 620, MIN_VIEW_W = 760;
+  let W = 0, H = 0;      // taille logique du monde (toute la logique du jeu travaille dans ces unités)
+  let SW = 0, SH = 0;    // taille de l'écran, en pixels CSS (HUD et annonces)
+  let VS = 1;            // pixels CSS par unité logique
+  let PR = 1;            // pixels réels par pixel CSS : la finesse du rendu, abaissée si le jeu rame
+  // Finesses de rendu possibles. Le style peint supporte très bien un rendu un peu moins fin,
+  // et c'est le nombre de pixels peints qui coûte le plus cher sur téléphone.
+  const PR_STEPS = [2, 1.75, 1.5, 1.25, 1, 0.85, 0.7];
+  // Au-delà de ce nombre de pixels réels, on rend un peu moins finement : écrans très grands ou très denses.
+  // Sur écran tactile (téléphone, tablette), on part d'un rendu plus léger : la fluidité compte plus que la finesse.
+  const TOUCH = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  const PIXEL_BUDGET = TOUCH ? 1.0e6 : 2.4e6;
+  let prStep = 0, lite = false;
+  function pickStep() {
+    const dpr = window.devicePixelRatio || 1;
+    let i = PR_STEPS.findIndex(p => p <= dpr + 0.01);
+    if (i < 0) i = PR_STEPS.length - 1;
+    while (i < PR_STEPS.length - 1 && SW * SH * PR_STEPS[i] * PR_STEPS[i] > PIXEL_BUDGET) i++;
+    return i;
+  }
+  function applyPR() {
+    PR = PR_STEPS[prStep];
+    canvas.width = Math.round(SW * PR); canvas.height = Math.round(SH * PR);
+    canvas.style.width = SW + 'px'; canvas.style.height = SH + 'px';
+    worldTransform();
+  }
+  function worldTransform() { ctx.setTransform(VS * PR, 0, 0, VS * PR, 0, 0); }
+  function screenTransform() { ctx.setTransform(PR, 0, 0, PR, 0, 0); }
   // Zones sûres (encoche, coins arrondis, barre d'accueil) : le décor passe dessous, le HUD s'en écarte
   const SAFE = { t: 0, r: 0, b: 0, l: 0 };
   const safeProbe = document.createElement('div');
@@ -246,12 +280,33 @@
     SAFE.b = parseFloat(cs.paddingBottom) || 0; SAFE.l = parseFloat(cs.paddingLeft) || 0;
   }
   function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
-    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    SW = window.innerWidth; SH = window.innerHeight;
+    VS = Math.min(SH / VIEW_H, SW / MIN_VIEW_W);
+    W = SW / VS; H = SH / VS;
+    prStep = Math.max(prStep, pickStep());
+    applyPR();
     readSafe();
+  }
+
+  // Qualité adaptative : on mesure la fluidité ; si le jeu n'arrive pas à suivre, on rend moins de pixels,
+  // puis on retire les effets d'ambiance les plus coûteux (grain du papier, brume, poussières, rayons).
+  const perf = { acc: 0, n: 0, sq: 0, wait: 2 };
+  function watchPerf(dt) {
+    if (dt > 0.25 || document.hidden) return;           // onglet en pause, chargement…
+    if (perf.wait > 0) { perf.wait -= dt; return; }     // on laisse le temps au changement précédent d'agir
+    perf.acc += dt; perf.sq += dt * dt; perf.n++;
+    if (perf.acc < 1.2) return;
+    const avg = perf.acc / perf.n, sd = Math.sqrt(Math.max(0, perf.sq / perf.n - avg * avg));
+    perf.acc = perf.sq = perf.n = 0;
+    if (avg < 1 / 48) return;                           // assez fluide
+    // Images très régulières à 30 par seconde : l'appareil est bridé (mode économie d'énergie), pas débordé
+    const capped = sd < 0.0025 && Math.abs(avg - 1 / 30) < 0.003;
+    if (PR > 1) { prStep++; applyPR(); }
+    else if (capped) return;
+    else if (!lite) lite = true;
+    else if (avg > 1 / 40 && prStep < PR_STEPS.length - 1) { prStep++; applyPR(); }
+    else return;
+    perf.wait = 1.5;
   }
   window.addEventListener('resize', resize);
   resize();
@@ -275,7 +330,6 @@
   const GROUND_H = 22;
   const BELLY_MAX = 100;
   const BELLY_PER_PICKUP = 25;   // une goutte de pollution
-  const BELLY_PER_SAP = 0.6;     // coût d'un crachat de sève (une goutte ≈ 5 s de sève)
   const HORIZON = 0.56;          // hauteur de l'horizon (fraction de l'écran)
 
   // ---------- Palettes : monde malade → monde guéri ----------
@@ -309,6 +363,9 @@
   let state = 'menu';            // menu | play | over
   let score = 0, distance = 0, health = 0, time = 0, lastTime = 0;
   let traps = [], beams = [], megas = [], flashT = 0;
+  // Moustiques libérés : chaque moustique abattu remplit une jauge ; pleine, un moustique purifié rejoint Gloub et l'aide
+  const KILLS_FOR_ALLY = 8, MAX_ALLIES = 2;
+  let allies = [], freed = 0;
   let bugs = [], swarms = [], swarmTimer = 4;   // moustiques de suie, et nuées annoncées   // pièges posés dans les passages (plante carnivore, épines)
   let player, spits, cells, pickups, flowers, particles, texts, motes, layers, props, fore, clouds, winds, spirits;
   let shootTimer = 0, columnTimer = 0, shakeT = 0, overTime = 0;
@@ -593,27 +650,30 @@
   }
   function makeWinds() { return Array.from({ length: 6 }, () => newWind(true)); }
 
-  const grainPattern = (() => {
-    const g = document.createElement('canvas');
-    g.width = g.height = 160;
-    const gx = g.getContext('2d');
-    const img = gx.createImageData(160, 160);
-    for (let i = 0; i < img.data.length; i += 4) {
-      const v = 110 + Math.random() * 40;
-      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-      img.data[i + 3] = 255;
+  // Halos lumineux pré-dessinés : une petite image floue, recopiée à la taille voulue.
+  // Bien moins coûteux qu'un flou calculé à chaque image (shadowBlur), surtout sur téléphone.
+  const glowCache = new Map();
+  function glow(x, y, r, rgbStr, alpha = 1) {
+    let cv = glowCache.get(rgbStr);
+    if (!cv) {
+      cv = document.createElement('canvas'); cv.width = cv.height = 64;
+      const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, `rgba(${rgbStr},0.85)`); gr.addColorStop(0.35, `rgba(${rgbStr},0.4)`); gr.addColorStop(1, `rgba(${rgbStr},0)`);
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+      glowCache.set(rgbStr, cv);
     }
-    gx.putImageData(img, 0, 0);
-    return ctx.createPattern(g, 'repeat');
-  })();
+    if (alpha !== 1) { const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * alpha; ctx.drawImage(cv, x - r, y - r, r * 2, r * 2); ctx.globalAlpha = a0; }
+    else ctx.drawImage(cv, x - r, y - r, r * 2, r * 2);
+  }
+
 
   // ---------- Partie ----------
   function reset() {
     score = 0; distance = 0; health = 0;
-    player = { y: H * 0.45, vy: 0, tilt: 0, flap: 0, mouth: 0, belly: 0, alive: true, inv: 0, charge: 0, gulp: 0, chew: 0, wide: 0 };
+    player = { y: H * 0.45, vy: 0, tilt: 0, flap: 0, mouth: 0, belly: 0, alive: true, inv: 0, charge: 0, gulp: 0, chew: 0, wide: 0, megaT: 0 };
     beams = [];
     traps = [];
-    bugs = []; swarms = []; swarmTimer = 4; megas = []; flashT = 0;
+    bugs = []; swarms = []; swarmTimer = 4; allies = []; freed = 0; megas = []; flashT = 0;
     spits = []; cells = []; pickups = []; flowers = []; particles = []; texts = [];
     motes = makeMotes(); layers = makeLayers(); props = makeProps(); fore = makeFore();
     clouds = makeClouds(); winds = makeWinds(); spirits = [];
@@ -623,7 +683,7 @@
 
   function start() {
     reset();
-    holdT = 0;
+    announce = null; holdT = 0;
     state = 'play';
     overlay.style.display = 'none';
     // Première goutte de pollution offerte pour découvrir la sève
@@ -636,6 +696,10 @@
     if (player.inv > 0 || state !== 'play') return;
     if (sapLevel() === 0) { die(); return; }
     player.belly = Math.max(0, player.belly - BELLY_PER_PICKUP);
+    player.megaT = 0;
+    announceLevel(-1);
+    const gone = allies.find(a => !a.leaving);   // sous le choc, un moustique allié prend peur et s'envole
+    if (gone) gone.leaving = true;
     player.inv = 1.4;
     shakeT = 0.25;
     for (const c of cells) {
@@ -654,6 +718,18 @@
   function killBug(b) {
     b.alive = false;
     score += 10;
+    if (state === 'play') {
+      freed++;
+      if (freed >= KILLS_FOR_ALLY) {
+        freed = 0;
+        if (allies.length < MAX_ALLIES) {
+          const px = W * PLAYER_X_RATIO;
+          allies.push({ x: b.x, y: b.y, t: 0, shootT: 0.3, leaving: false, slot: allies.some(a => a.slot === 0) ? 1 : 0 });
+          burst(b.x, b.y, '#d8ff6a', 14, 'dot');
+          announceAlly();
+        } else { score += 50; floatText(b.x, b.y - 20, '+50', '#d8ff6a'); }
+      }
+    }
     burst(b.x, b.y, '#3a3238', 6, 'dot');
     particles.push({ x: b.x, y: b.y, vx: rand(-20, 20), vy: -45, life: 1.2, max: 1.2, color: '#ffffff', r: 2.6, rot: 0, vr: 0, shape: 'dot', nograv: true });
   }
@@ -697,13 +773,63 @@
     bugs = bugs.filter(b => b.alive && b.x > -40);
   }
 
+  // Moustiques alliés : ils suivent Gloub en léger différé, au-dessus et en dessous, et tirent de petites ondes de sève
+  function updateAllies(dt, px) {
+    for (const a of allies) {
+      a.t += dt;
+      if (a.leaving) {   // il s'enfuit vers le ciel en s'estompant
+        a.x += 120 * dt; a.y -= 160 * dt; a.fade = (a.fade || 1) - dt * 1.2;
+        continue;
+      }
+      if (Math.random() < 0.12) particles.push({ x: a.x - 22, y: a.y + 4, vx: -60, vy: rand(-12, 12), life: 0.7, max: 0.7, color: '#dffaf0', r: 1.8, rot: 0, vr: 0, shape: 'dot', nograv: true });   // traînée de pollen
+      const tx = px - 36 + Math.sin(a.t * 2 + a.slot * 3) * 6;
+      const ty = player.y + (a.slot ? 58 : -56) + Math.sin(a.t * 3.1 + a.slot) * 7;
+      const k = 1 - Math.exp(-dt * 6);
+      a.x += (tx - a.x) * k; a.y += (ty - a.y) * k;
+      if (state !== 'play') continue;
+      // Petite mitraillette : des rafales de dards de nectar tirés par l'aiguille
+      a.shootT -= dt;
+      if (a.shootT <= 0) {
+        a.burst = (a.burst || 0) + 1;
+        a.shootT = a.burst % 6 ? 0.075 : 0.45;   // rafale de 6 dards, puis une courte pause
+        const tipX = a.x + 30, tipY = a.y + 3;
+        spits.push({ x: tipX, y: tipY + rand(-1.5, 1.5), vx: SPIT_SPEED * 1.25, vy: rand(-25, 25), kind: 'sap', level: 1, r: 2.5, dmg: 1, hitsLeft: 1, hit: new Set(), life: 0.9, spin: 0, dart: true });
+        a.flash = 0.05; a.kick = 1;
+      }
+      a.flash = Math.max(0, (a.flash || 0) - dt);
+      a.kick = Math.max(0, (a.kick || 0) - dt * 14);
+      for (const b of bugs) if (b.alive && touches(a.x, a.y, b.x, b.y, 24)) killBug(b);   // il chasse ses anciens congénères
+    }
+    allies = allies.filter(a => !a.leaving || a.fade > 0);
+  }
+
+  // Moustique libéré : exactement le dessin du moustique de suie, retourné vers Gloub,
+  // mais guéri de la corruption : vert d'eau lumineux au lieu du poison, yeux doux, goutte de nectar, petit halo.
+  function drawAlly(a) {
+    ctx.save();
+    ctx.globalAlpha = a.leaving ? Math.max(0, a.fade) : 1;
+    const halo = ctx.createRadialGradient(a.x, a.y, 2, a.x, a.y, 30);
+    halo.addColorStop(0, `rgba(191,245,228,${0.22 + 0.08 * Math.sin(a.t * 4)})`); halo.addColorStop(1, 'rgba(191,245,228,0)');
+    ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(a.x, a.y, 30, 0, Math.PI * 2); ctx.fill();
+    drawBug({ x: a.x - (a.kick || 0) * 2.5, y: a.y, t: a.t, phase: a.slot * 2 }, BUG_FREED);   // léger recul à chaque tir
+    if (a.flash > 0) {   // éclair de tir au bout de l'aiguille
+      ctx.fillStyle = 'rgba(255,241,168,0.9)';
+      ctx.beginPath(); ctx.arc(a.x + 31, a.y + 3, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(a.x + 31, a.y + 3, 2, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // Gloups : la proie est avalée
   function eatPickup(p) {
     p.alive = false;
     const fruit = p.kind === 'fruit', px = W * PLAYER_X_RATIO;
     const before = sapLevel();
     player.belly = Math.min(BELLY_MAX, player.belly + BELLY_PER_PICKUP * (fruit ? 2 : 1));
-    if (sapLevel() > before) floatText(px + 40, player.y - 52, LEVELS[sapLevel()].name, '#fff1a8');
+    if (sapLevel() === 4) player.megaT = MEGA_TIME;   // une mûre pendant la méga-onde la recharge
+    if (sapLevel() > before) announceLevel(1);
+    else if (before === 4) announceLevel(0, 'rechargée !');
     score += fruit ? 25 : 5;
     player.gulp = 1;
     player.chew = 0.55;   // il mâchouille, les yeux fermés de contentement
@@ -868,6 +994,50 @@
   }
   function floatText(x, y, txt, color) { texts.push({ x, y, txt, color, life: 1 }); }
 
+  // Annonce des évolutions : grand bandeau au centre de l'écran, peint et encré
+  const MEGA_TIME = 8;          // durée de la méga-onde, puis retour à la grande onde
+  const ANNOUNCE_TIME = 1.6;
+  let announce = null;
+  function announceLevel(dir, sub) {
+    const lvl = sapLevel();
+    const txt = lvl === 0 ? 'Ventre vide' : LEVELS[lvl].name.replace(' !', '');
+    announce = {
+      txt: dir >= 0 ? txt + ' !' : txt,
+      sub: sub || (dir > 0 ? 'Niveau ' + lvl : dir < 0 ? (lvl === 0 ? 'Attention, plus de mûre !' : 'Niveau perdu') : ''),
+      color: dir > 0 ? (lvl === 4 ? '#ffe27a' : '#d8ff6a') : dir < 0 ? '#ff9db5' : '#d9a6ff',
+      up: dir >= 0, t: 0,
+    };
+  }
+  function announceAlly() {
+    announce = { txt: 'Moustique libéré !', sub: 'Il est guéri de la corruption et t\'aide à tirer', color: '#bff5e4', up: true, t: 0 };
+  }
+  function drawAnnounce() {
+    if (!announce) return;
+    const a = announce, u = a.t / ANNOUNCE_TIME;
+    if (u >= 1) { announce = null; return; }
+    const pop = u < 0.15 ? u / 0.15 : 1, out = u > 0.75 ? 1 - (u - 0.75) / 0.25 : 1;
+    const scale = a.up ? 0.6 + 0.4 * (1 - Math.pow(1 - pop, 3)) * (1 + 0.08 * Math.sin(pop * Math.PI)) : 1;
+    const drop = a.up ? 0 : (1 - pop) * -14;
+    const fs = Math.round(Math.max(28, Math.min(52, Math.min(SW, SH) * 0.11)));
+    ctx.save();
+    ctx.globalAlpha = out;
+    ctx.translate(SW / 2, SH * 0.3 + drop);
+    ctx.scale(scale, scale);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.font = fs + "px 'Mochiy Pop One', 'Nunito', ui-rounded, system-ui, sans-serif";
+    ctx.lineWidth = fs * 0.2; ctx.strokeStyle = '#241a2e';
+    ctx.fillStyle = '#241a2e'; ctx.fillText(a.txt, 0, fs * 0.09);   // ombre portée d'encre
+    ctx.strokeText(a.txt, 0, 0);
+    ctx.fillStyle = a.color; ctx.fillText(a.txt, 0, 0);
+    if (a.sub) {
+      const ss = Math.round(fs * 0.36);
+      ctx.font = '800 ' + ss + 'px Nunito, ui-rounded, system-ui, sans-serif';
+      ctx.lineWidth = ss * 0.35; ctx.strokeText(a.sub, 0, fs * 0.82);
+      ctx.fillStyle = '#f6eedd'; ctx.fillText(a.sub, 0, fs * 0.82);
+    }
+    ctx.restore();
+  }
+
   function touches(ax, ay, bx, by, r) {
     const dx = ax - bx, dy = ay - by;
     return dx * dx + dy * dy < r * r;
@@ -885,7 +1055,7 @@
     // Méga-onde : la grande onde, plus toutes les ~1 s une onde géante (concentration puis libération)
     { name: 'Méga-onde !', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
   ];
-  const LEVEL_DRAIN = [0, 1, 1, 1.3, 2];   // le rayon se vide vite : de quoi tirer 2 ou 3 éclairs
+  // Pas de baisse avec le temps : chaque mûre fait monter d'un niveau, chaque choc fait perdre un niveau.
   const BEAM_CHARGE = 1.1, BEAM_HALF = 6;
   function sapLevel() { return player.belly <= 0 ? 0 : Math.min(4, Math.ceil(player.belly / BELLY_PER_PICKUP - 1e-6)); }
 
@@ -920,7 +1090,6 @@
       spits.push({ x: mx, y: my + dy, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, kind: lvl ? 'sap' : 'saliva', level: lvl,
                    r, dmg: L.dmg, hitsLeft: L.pierce, hit: lvl ? new Set() : null, life: 1.6, spin: Math.random() * 6 });
     }
-    if (lvl) player.belly = Math.max(0, player.belly - BELLY_PER_SAP * LEVEL_DRAIN[lvl]);
     if (!player.chew) player.mouth = 1;
     shootTimer = SHOOT_COOLDOWN * L.cool;
   }
@@ -1006,7 +1175,7 @@
       let my = H * 0.45;
       const tw = document.querySelector('.title-wrap'), cd = document.querySelector('.card');
       if (tw && cd) {
-        const tr = tw.getBoundingClientRect(), cr = cd.getBoundingClientRect(), a = tr.bottom, b = cr.top;
+        const tr = tw.getBoundingClientRect(), cr = cd.getBoundingClientRect(), a = tr.bottom / VS, b = cr.top / VS;
         if (cr.left > tr.right) my = Math.min(H * 0.62, (a + H * 0.9) / 2);   // paysage : titre à gauche, Gloub dessous
         else if (b - a > 70 && b < H * 0.9) my = (a + b) / 2;
       }
@@ -1059,8 +1228,13 @@
         }
       }
 
+      if (announce) announce.t += dt;
       shootTimer -= dt;
       if (shootTimer <= 0) spit(px);
+      if (sapLevel() === 4) {   // la méga-onde est temporaire
+        player.megaT -= dt;
+        if (player.megaT <= 0) { player.belly = BELLY_PER_PICKUP * 3; player.megaT = 0; player.charge = 0; announceLevel(-1, 'La méga-onde s\'épuise'); }
+      }
       if (sapLevel() === 4) {   // le rayon se charge, puis part tout droit
         player.charge += dt;
         if (player.charge >= BEAM_CHARGE) { fireBeam(px); player.charge = 0; }
@@ -1107,12 +1281,13 @@
     // Crachats
     for (const s of spits) {
       s.x += s.vx * dt; s.y += s.vy * dt; s.spin += dt * 8; s.life -= dt;
-      if (s.kind === 'sap' && Math.random() < 0.5) {
+      if (s.kind === 'sap' && !s.dart && Math.random() < 0.5) {
         particles.push({ x: s.x - s.r, y: s.y + rand(-2, 2), vx: -40, vy: rand(-20, 20), life: 0.3, max: 0.3, color: '#d8ff6a', r: 2.5, rot: 0, vr: 0, shape: 'dot', nograv: true });
       }
     }
     for (const t of traps) t.x -= ws * dt, t.t += dt;
     updateBugs(dt, speed, px, diff);
+    updateAllies(dt, px);
     updateMegas(dt);
     for (const b of beams) b.life -= dt;
     beams = beams.filter(b => b.life > 0);
@@ -1170,25 +1345,33 @@
   }
 
   // ---------- Rendu ----------
+  // Le dégradé du ciel et le halo du soleil ne changent qu'avec la guérison du monde : on les peint
+  // dans une petite image (ils sont flous par nature) qu'on étire sur l'écran, au lieu de deux grands
+  // dégradés recalculés à chaque image.
+  const skyCache = { cv: document.createElement('canvas'), health: -1, w: 0, h: 0 };
   function drawSky() {
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, rgb(col('skyTop')));
-    g.addColorStop(1, rgb(col('skyBot')));
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-
-    // Soleil et halo
     const sx = W * 0.78, sy = H * 0.2, sr = Math.min(W, H) * 0.08;
-    const halo = ctx.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * 4);
-    halo.addColorStop(0, rgb([255, 236, 190], 0.35 + health * 0.25));
-    halo.addColorStop(1, rgb([255, 236, 190], 0));
-    ctx.fillStyle = halo;
-    ctx.fillRect(0, 0, W, H);
+    if (skyCache.w !== W || skyCache.h !== H || Math.abs(skyCache.health - health) > 0.004) {
+      const cw = 192, ch = Math.max(2, Math.round(cw * H / W)), c = skyCache.cv;
+      c.width = cw; c.height = ch;
+      const g = c.getContext('2d');
+      g.setTransform(cw / W, 0, 0, ch / H, 0, 0);
+      const lg = g.createLinearGradient(0, 0, 0, H);
+      lg.addColorStop(0, rgb(col('skyTop')));
+      lg.addColorStop(1, rgb(col('skyBot')));
+      g.fillStyle = lg; g.fillRect(0, 0, W, H);
+      const halo = g.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * 4);
+      halo.addColorStop(0, rgb([255, 236, 190], 0.35 + health * 0.25));
+      halo.addColorStop(1, rgb([255, 236, 190], 0));
+      g.fillStyle = halo; g.fillRect(0, 0, W, H);
+      skyCache.health = health; skyCache.w = W; skyCache.h = H;
+    }
+    ctx.drawImage(skyCache.cv, 0, 0, W, H);
     ctx.fillStyle = rgb(mix([236, 200, 150], [255, 246, 214], health), 0.55 + health * 0.4);
     ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
 
     // Rayons de lumière quand le monde guérit
-    if (health > 0.2) {
+    if (health > 0.2 && !lite) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = rgb([255, 240, 200], (health - 0.2) * 0.09);
@@ -1208,17 +1391,30 @@
   }
 
   // Cumulus peints : base plate, ombre bleutée, rehauts blancs
+  // Nuage en volume (ombre, masse, lumière), à base plate. Peint dans une petite image mise en cache,
+  // refaite seulement quand la guérison change de couleur le ciel ou que la finesse du rendu change.
   function drawCloud(c, x) {
-    const base = c.y;
-    ctx.save();
-    ctx.beginPath(); ctx.rect(x - c.w, base - 400, c.w * 2, 406); ctx.clip();
-    ctx.fillStyle = rgb(col('cloudShade'));
-    blobs(c.puffs.map(([dx, dy, r]) => [x + dx, base + dy + r * 0.22, r]));
-    ctx.fillStyle = rgb(col('cloud'));
-    blobs(c.puffs.map(([dx, dy, r]) => [x + dx - r * 0.06, base + dy - r * 0.05, r * 0.9]));
-    ctx.fillStyle = rgb([255, 255, 255], 0.35 + health * 0.3);
-    blobs(c.puffs.map(([dx, dy, r]) => [x + dx - r * 0.25, base + dy - r * 0.35, r * 0.45]));
-    ctx.restore();
+    const rs = VS * PR, hq = Math.round(health * 40) / 40;
+    let m = c.spr;
+    if (!m || m.h !== hq || m.rs !== rs) {
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+      for (const [dx, dy, r] of c.puffs) { x0 = Math.min(x0, dx - r); x1 = Math.max(x1, dx + r); y0 = Math.min(y0, dy - r); }
+      x0 = Math.max(x0, -c.w) - 2; x1 = Math.min(x1, c.w) + 2; y0 -= 2;
+      const y1 = 6;
+      if (!m) m = c.spr = { cv: document.createElement('canvas') };
+      m.cv.width = Math.max(1, Math.ceil((x1 - x0) * rs)); m.cv.height = Math.max(1, Math.ceil((y1 - y0) * rs));
+      const g = m.cv.getContext('2d');
+      g.setTransform(rs, 0, 0, rs, -x0 * rs, -y0 * rs);
+      g.beginPath(); g.rect(-c.w, y0, c.w * 2, y1 - y0); g.clip();
+      g.fillStyle = rgb(col('cloudShade'));
+      blobsOn(g, c.puffs.map(([dx, dy, r]) => [dx, dy + r * 0.22, r]));
+      g.fillStyle = rgb(col('cloud'));
+      blobsOn(g, c.puffs.map(([dx, dy, r]) => [dx - r * 0.06, dy - r * 0.05, r * 0.9]));
+      g.fillStyle = rgb([255, 255, 255], 0.35 + hq * 0.3);
+      blobsOn(g, c.puffs.map(([dx, dy, r]) => [dx - r * 0.25, dy - r * 0.35, r * 0.45]));
+      Object.assign(m, { h: hq, rs, ox: x0, oy: y0, w: x1 - x0, hh: y1 - y0 });
+    }
+    ctx.drawImage(m.cv, x + m.ox, c.y + m.oy, m.w, m.hh);
   }
   function drawClouds() {
     const P = W + CLOUD_PAD * 2;
@@ -1278,7 +1474,9 @@
     ctx.lineTo(W, H);
     ctx.closePath(); ctx.fill();
 
-    const sp = 70, range = W * 6;
+    // Bandes du sol : celles qui partent très loin sur les côtés ne se voient qu'au ras de l'horizon, sous la brume ;
+    // les tracer toutes (W × 6) coûtait à lui seul près d'un tiers du rendu. W × 2,4 donne le même dessin.
+    const sp = 70, range = W * 2.4;
     const first = Math.floor((distance - range) / sp), last = Math.ceil((distance + range) / sp);
     ctx.fillStyle = rgb(col('ground1'));
     ctx.beginPath();
@@ -1315,6 +1513,25 @@
     ctx.fillRect(0, h0, W, H - h0);
   }
 
+  // Chaque élément de décor existe en version malade et guérie. On garde en cache leur mélange au niveau
+  // de guérison actuel, déjà à la finesse de l'écran : une seule copie d'image par élément, sans
+  // redimensionnement, au lieu de deux copies fondues l'une sur l'autre à chaque image.
+  function drawMixed(o, x, y) {
+    const rs = VS * PR, hq = Math.round(health * 40) / 40, a = o.sick, b = o.heal;
+    let m = o.mix;
+    if (!m || m.h !== hq || m.rs !== rs) {
+      if (!m) m = o.mix = { cv: document.createElement('canvas') };
+      const c = m.cv;
+      c.width = Math.max(1, Math.ceil(a.cv.width * rs)); c.height = Math.max(1, Math.ceil(a.cv.height * rs));
+      const g = c.getContext('2d');
+      g.setTransform(rs, 0, 0, rs, 0, 0);
+      if (hq < 1) g.drawImage(a.cv, 0, 0);
+      if (hq > 0) { g.globalAlpha = hq; g.drawImage(b.cv, 0, 0); }
+      m.h = hq; m.rs = rs;
+    }
+    ctx.drawImage(m.cv, x - a.ox, y - a.oy, m.cv.width / rs, m.cv.height / rs);
+  }
+
   // Les éléments pré-peints sont posés sur le sol et suivent la courbure de la planète
   function drawLayer(L) {
     const scroll = (distance * L.speed) % PERIOD;
@@ -1323,13 +1540,8 @@
         const x = it.x + rep * PERIOD - scroll;
         if (x > W + 120 || x + it.w < -120) continue;
         // Simple copie d'image, sans rotation ni arrondi au pixel (l'arrondi faisait avancer les plans lointains par à-coups)
-        const xc = x + it.w / 2, y = groundY(L.speed, xc);
-        if (health < 0.99) ctx.drawImage(it.sick.cv, xc - it.sick.ox, y - it.sick.oy);
-        if (health > 0.01) {
-          ctx.globalAlpha = health;
-          ctx.drawImage(it.heal.cv, xc - it.heal.ox, y - it.heal.oy);
-          ctx.globalAlpha = 1;
-        }
+        const xc = x + it.w / 2;
+        drawMixed(it, xc, groundY(L.speed, xc));
       }
     }
   }
@@ -1410,13 +1622,7 @@
   function drawProp(p) {
     const x = screenX(p.X, p.s);
     if (x < -200 || x > W + 200) return;
-    const y = groundY(p.s, x);
-    if (health < 0.99) ctx.drawImage(p.sick.cv, x - p.sick.ox, y - p.sick.oy);
-    if (health > 0.01) {
-      ctx.globalAlpha = health;
-      ctx.drawImage(p.heal.cv, x - p.heal.ox, y - p.heal.oy);
-      ctx.globalAlpha = 1;
-    }
+    drawMixed(p, x, groundY(p.s, x));
   }
   function drawProps(min, max) {
     for (const p of props) if (p.s >= min && p.s < max) drawProp(p);
@@ -1424,6 +1630,7 @@
 
   // Brume de pollution qui se dissipe avec la guérison
   function drawHaze() {
+    if (lite) return;
     ctx.fillStyle = rgb([110, 95, 60], (1 - health) * 0.14);
     ctx.fillRect(0, 0, W, H);
   }
@@ -1448,6 +1655,7 @@
   }
 
   function drawMotes() {
+    if (lite) return;
     const c = mix([150, 132, 104], [255, 240, 150], health);
     ctx.fillStyle = rgb(c, 0.55);
     for (const m of motes) { ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill(); }
@@ -1464,48 +1672,66 @@
     blobs(list.map(([x, y, r]) => [x + r * 0.35, y - r * 0.42, r * 0.32 * k]));
   }
 
-  // Haie de ronces en relief au sol (mortelle)
-  function drawGround() {
-    const base = H - GROUND_H, sp = 16;
-    const off = distance % sp, start = Math.floor(distance / sp);
+  // Haie de ronces en relief au sol (mortelle).
+  // Elle ne change jamais : on la peint d'avance dans une longue bande (refaite quand on arrive au bout,
+  // toutes les quelques secondes) au lieu de redessiner sa centaine de touffes à chaque image.
+  const groundStrip = { cv: document.createElement('canvas'), x0: 0, x1: -1, y0: 0, rs: 0, h: 0 };
+  function paintGround(g, x0, x1, base) {
+    const sp = 16;
     const hash = (k, a, b) => { const h = Math.sin(k * a) * b; return h - Math.floor(h); };  // hasard stable, attaché au monde
     const list = [], top = [];
-    for (let i = -2; i * sp - off < W + sp * 2; i++) {
-      const k = start + i, rnd = hash(k, 12.9898, 43758.5453), rnd2 = hash(k, 78.233, 12543.123);
-      const x = i * sp - off, y = base + 7 + rnd * 7, r = 11 + rnd2 * 11;
+    for (let k = Math.floor(x0 / sp) - 2; k * sp < x1 + sp * 2; k++) {
+      const rnd = hash(k, 12.9898, 43758.5453), rnd2 = hash(k, 78.233, 12543.123);
+      const x = k * sp, y = base + 7 + rnd * 7, r = 11 + rnd2 * 11;
       list.push([x, y, r]);
       if (rnd > 0.55) list.push([x + 7, y - r * 0.55, r * 0.55]);
       top.push([x, y - r * 0.75, k]);
     }
-    ctx.fillStyle = '#24172a';
-    ctx.fillRect(0, base + 8, W, GROUND_H);
-    ctx.fillStyle = 'rgba(30,18,36,0.5)';
-    blobs(list.map(([x, y, r]) => [x - 3, y + 5, r]));
+    g.fillStyle = '#24172a';
+    g.fillRect(x0, base + 8, x1 - x0, GROUND_H);
+    g.fillStyle = 'rgba(30,18,36,0.5)';
+    blobsOn(g, list.map(([x, y, r]) => [x - 3, y + 5, r]));
     // Épines de silhouette
-    ctx.fillStyle = '#2e1d34';
-    ctx.beginPath();
-    for (const [x, y, r] of list) { ctx.moveTo(x - 4, y - r * 0.8); ctx.lineTo(x + 2, y - r * 1.35); ctx.lineTo(x + 4, y - r * 0.8); ctx.closePath(); }
-    ctx.fill();
-    shadeBlobs(list, 0.9);
+    g.fillStyle = '#2e1d34';
+    g.beginPath();
+    for (const [x, y, r] of list) { g.moveTo(x - 4, y - r * 0.8); g.lineTo(x + 2, y - r * 1.35); g.lineTo(x + 4, y - r * 0.8); g.closePath(); }
+    g.fill();
+    // Volume peint : masse, ton moyen vers le soleil, lumière
+    g.fillStyle = BR_DARK; blobsOn(g, list);
+    g.fillStyle = BR_MID; blobsOn(g, list.map(([x, y, r]) => [x + r * 0.18, y - r * 0.22, r * 0.72 * 0.9]));
+    g.fillStyle = BR_LIGHT; blobsOn(g, list.map(([x, y, r]) => [x + r * 0.35, y - r * 0.42, r * 0.32 * 0.9]));
     // Tige épineuse qui serpente sur la haie
     for (const [w, color] of [[4, '#24162a'], [2, '#8a6094']]) {
-      ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
-      ctx.beginPath();
+      g.strokeStyle = color; g.lineWidth = w; g.lineCap = 'round';
+      g.beginPath();
       top.forEach(([x, y, k], i) => {
-        if (i === 0) { ctx.moveTo(x, y); return; }
-        const [x0, y0] = top[i - 1];
-        ctx.quadraticCurveTo(x0 + sp * 0.5, (y0 + y) / 2 + (k % 2 ? -6 : 6), x, y);
+        if (i === 0) { g.moveTo(x, y); return; }
+        const [px, py] = top[i - 1];
+        g.quadraticCurveTo(px + sp * 0.5, (py + y) / 2 + (k % 2 ? -6 : 6), x, y);
       });
-      ctx.stroke();
+      g.stroke();
     }
-    ctx.fillStyle = THORN;
-    ctx.beginPath();
-    for (const [x, y, k] of top) { const s = k % 2 ? -1 : 1; ctx.moveTo(x - 2.5, y); ctx.lineTo(x + 1, y + s * 6); ctx.lineTo(x + 2.5, y); ctx.closePath(); }
-    ctx.fill();
+    g.fillStyle = THORN;
+    g.beginPath();
+    for (const [x, y, k] of top) { const sd = k % 2 ? -1 : 1; g.moveTo(x - 2.5, y); g.lineTo(x + 1, y + sd * 6); g.lineTo(x + 2.5, y); g.closePath(); }
+    g.fill();
+  }
+  function drawGround() {
+    const base = H - GROUND_H, rs = VS * PR, gs = groundStrip;
+    if (distance < gs.x0 || distance + W > gs.x1 || gs.rs !== rs || gs.h !== H) {
+      const x0 = Math.floor(distance) - 8, x1 = x0 + Math.ceil(W) + 1200, y0 = base - 40;
+      gs.cv.width = Math.ceil((x1 - x0) * rs); gs.cv.height = Math.ceil((H - y0) * rs);
+      const g = gs.cv.getContext('2d');
+      g.setTransform(rs, 0, 0, rs, -x0 * rs, -y0 * rs);
+      paintGround(g, x0, x1, base);
+      Object.assign(gs, { x0, x1, y0, rs, h: H });
+    }
+    ctx.drawImage(gs.cv, gs.x0 - distance, gs.y0, gs.x1 - gs.x0, H - gs.y0);
   }
 
   // Traînées de vent
   function drawWinds() {
+    if (lite) return;
     ctx.save();
     ctx.strokeStyle = rgb([255, 255, 255], 0.28 + health * 0.15);
     ctx.lineWidth = 1.6;
@@ -1537,10 +1763,9 @@
         ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(ex, ey); ctx.stroke();
         ctx.beginPath(); ctx.arc(ex, ey, 1.6, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.shadowColor = 'rgba(255,255,220,0.9)'; ctx.shadowBlur = 8;
+      glow(x, y, 11, '255,255,220', 0.9);
       ctx.fillStyle = '#fffbea';
       ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
       ctx.fillStyle = '#3a3040';
       ctx.fillRect(x - 1.8, y - 0.8, 1, 1.4);
       ctx.fillRect(x + 0.9, y - 0.8, 1, 1.4);
@@ -1549,18 +1774,39 @@
   }
 
   // Grain de papier et vignettage, pour l'aspect peint
+  // Grain du papier et vignettage, peints une fois dans une image recouvrant l'écran (refaite si la taille change).
+  // Le grain éclaircit ou assombrit très légèrement chaque point, comme un papier aquarelle.
+  // Peint directement à la taille réelle du canvas, puis recopié pixel pour pixel (aucun redimensionnement).
+  const paperCache = { cv: document.createElement('canvas'), w: 0, h: 0 };
   function drawPaper() {
+    if (lite) return;
+    const cw = canvas.width, ch = canvas.height;
+    if (paperCache.w !== cw || paperCache.h !== ch) {
+      const c = paperCache.cv;
+      c.width = cw; c.height = ch;
+      const g = c.getContext('2d');
+      // grain : des grains d'environ un pixel CSS, quelle que soit la densité de l'écran
+      const cell = Math.max(1, Math.round(PR)), gw = Math.ceil(cw / cell), gh = Math.ceil(ch / cell);
+      const small = document.createElement('canvas'); small.width = gw; small.height = gh;
+      const sg = small.getContext('2d'), img = sg.createImageData(gw, gh), d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = Math.random() - 0.5, v = n > 0 ? 255 : 30;
+        d[i] = d[i + 1] = d[i + 2] = v;
+        d[i + 3] = Math.abs(n) * 18;
+      }
+      sg.putImageData(img, 0, 0);
+      g.imageSmoothingEnabled = false;
+      g.drawImage(small, 0, 0, gw * cell, gh * cell);
+      const v = g.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * 0.45, cw / 2, ch / 2, Math.max(cw, ch) * 0.75);
+      v.addColorStop(0, 'rgba(40,30,40,0)');
+      v.addColorStop(1, 'rgba(40,30,40,0.28)');
+      g.fillStyle = v; g.fillRect(0, 0, cw, ch);
+      paperCache.w = cw; paperCache.h = ch;
+    }
     ctx.save();
-    ctx.globalCompositeOperation = 'overlay';
-    ctx.globalAlpha = 0.18;
-    ctx.fillStyle = grainPattern;
-    ctx.fillRect(0, 0, W, H);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(paperCache.cv, 0, 0);
     ctx.restore();
-    const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.max(W, H) * 0.75);
-    v.addColorStop(0, 'rgba(40,30,40,0)');
-    v.addColorStop(1, 'rgba(40,30,40,0.28)');
-    ctx.fillStyle = v;
-    ctx.fillRect(0, 0, W, H);
   }
 
   // ---------- Murs organiques en relief ----------
@@ -1658,8 +1904,7 @@
   function drawPod(c) {
     const r = c.r * 0.62 * (1 + Math.sin(time * 4 + c.seed * 6) * 0.06);
     ctx.save();
-    ctx.shadowColor = '#b6ff3b';
-    ctx.shadowBlur = 14;
+    glow(c.x, c.y, r * 2.3, '182,255,59', 0.75);
     const g = ctx.createRadialGradient(c.x + r * 0.3, c.y - r * 0.35, r * 0.1, c.x, c.y, r);
     g.addColorStop(0, '#f4ffb0');
     g.addColorStop(0.5, '#b6ff3b');
@@ -1829,9 +2074,12 @@
       const R = m.half / Math.sin(0.95);
       for (let k = 0; k < 5; k++) {
         const rr = R * (1 - k * 0.1), cx = m.x - k * 16 - rr;
+        if (k === 0) {   // lueur large autour du front
+          ctx.strokeStyle = 'rgba(216,255,106,0.22)'; ctx.lineWidth = 46;
+          ctx.beginPath(); ctx.arc(cx, m.y, rr, -0.95, 0.95); ctx.stroke();
+        }
         ctx.strokeStyle = k === 0 ? 'rgba(255,255,240,0.95)' : `rgba(200,255,110,${0.75 - k * 0.13})`;
         ctx.lineWidth = 14 - k * 2.4;
-        ctx.shadowColor = '#d8ff6a'; ctx.shadowBlur = 24;
         ctx.beginPath(); ctx.arc(cx, m.y, rr, -0.95, 0.95); ctx.stroke();
       }
     }
@@ -1859,17 +2107,28 @@
 
   // Moustique de suie, effrayant et toxique : abdomen gonflé de poison qui luit, longue aiguille qui goutte,
   // deux yeux rouges, ailes déchirées aux nervures sombres, pattes épineuses
-  function drawBug(b) {
+  // Couleurs du moustique : de suie (ennemi) ou libéré (allié). Même dessin, seules les couleurs changent.
+  const BUG_SOOT = {
+    wing: 'rgba(190,210,170,0.35)', wingInk: 'rgba(30,20,30,0.7)', glow: '#b6ff3b', glowBlur: 8,
+    belly: ['#e6ff8a', '#8fd62a', '#3d5a14'], veins: 'rgba(20,30,8,0.8)', thorax: '#1f1a20', head: '#2b2430',
+    needle: '#1a141c', drip: '#b6ff3b', eye: '#ff2a40', eyeLight: '#ffe0e0', angry: true, glowRGB: '182,255,59', eyeRGB: '255,42,64',
+  };
+  const BUG_FREED = {
+    wing: 'rgba(225,255,240,0.6)', wingInk: 'rgba(36,26,46,0.6)', glow: '#bff5e4', glowBlur: 10,
+    belly: ['#ffffff', '#9fe3c4', '#3f8a72'], veins: 'rgba(30,80,64,0.55)', thorax: '#3e6f60', head: '#4d8573',
+    needle: '#2f5a4c', drip: '#fff1a8', eye: '#d8ff6a', eyeLight: '#ffffff', angry: false, glowRGB: '191,245,228', eyeRGB: '216,255,106',
+  };
+  function drawBug(b, pal = BUG_SOOT) {
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(Math.sin(b.t * 7 + b.phase) * 0.12);
-    ctx.scale(2.3, 2.3);
+    ctx.scale(pal.angry ? 2.3 : -2.3, 2.3);   // l'allié regarde vers la droite, du côté de Gloub
     const buzz = Math.sin(time * 90 + b.phase);
     // Ailes déchirées qui vrombissent
     for (const [ox, oy, rot] of [[2, -4.5, -0.55], [4.2, -3.8, -0.15]]) {
       ctx.save();
       ctx.translate(ox, oy + buzz * 0.9); ctx.rotate(rot + buzz * 0.2);
-      ctx.fillStyle = 'rgba(190,210,170,0.35)'; ctx.strokeStyle = 'rgba(30,20,30,0.7)'; ctx.lineWidth = 0.4;
+      ctx.fillStyle = pal.wing; ctx.strokeStyle = pal.wingInk; ctx.lineWidth = 0.4;
       ctx.beginPath(); ctx.moveTo(-4.5, 0); ctx.quadraticCurveTo(0, -3, 5, -0.5); ctx.lineTo(3.5, 0.6); ctx.lineTo(4, 1.5); ctx.lineTo(1.5, 1.3); ctx.lineTo(1, 2.2); ctx.quadraticCurveTo(-2, 2, -4.5, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-4, 0); ctx.lineTo(4, -0.6); ctx.moveTo(-2, 0.5); ctx.lineTo(2, 1.6); ctx.stroke();
@@ -1886,27 +2145,27 @@
     // Abdomen gonflé de poison, qui luit et pulse
     const pul = 1 + Math.sin(time * 8 + b.phase) * 0.08;
     ctx.save();
-    ctx.shadowColor = '#b6ff3b'; ctx.shadowBlur = 8;
+    glow(6.5, 1, 9.5 * pul, pal.glowRGB, 0.7);
     const ga = ctx.createRadialGradient(6, 0, 0.5, 6.5, 1, 5.5 * pul);
-    ga.addColorStop(0, '#e6ff8a'); ga.addColorStop(0.5, '#8fd62a'); ga.addColorStop(1, '#3d5a14');
+    ga.addColorStop(0, pal.belly[0]); ga.addColorStop(0.5, pal.belly[1]); ga.addColorStop(1, pal.belly[2]);
     ctx.fillStyle = ga;
     ctx.beginPath(); ctx.ellipse(6.5, 1, 5.2 * pul, 3 * pul, 0.3, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    ctx.strokeStyle = 'rgba(20,30,8,0.8)'; ctx.lineWidth = 0.5;   // veines et anneaux
+    ctx.strokeStyle = pal.veins; ctx.lineWidth = 0.5;   // veines et anneaux
     ctx.beginPath();
     for (const sx of [4.5, 6.6, 8.7]) { ctx.moveTo(sx, -1.6 + (sx - 4) * 0.3); ctx.quadraticCurveTo(sx + 0.6, 1, sx - 0.2, 3.4 + (sx - 4) * 0.3); }
     ctx.stroke();
     ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.7;
     ctx.beginPath(); ctx.ellipse(6.5, 1, 5.2 * pul, 3 * pul, 0.3, 0, Math.PI * 2); ctx.stroke();
     // Thorax bossu et tête
-    ctx.fillStyle = '#1f1a20';
+    ctx.fillStyle = pal.thorax;
     ctx.beginPath(); ctx.arc(0, -0.6, 2.9, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#2b2430';
+    ctx.fillStyle = pal.head;
     ctx.beginPath(); ctx.arc(-3.3, -1, 2.1, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     // Longue aiguille qui goutte de poison
-    ctx.strokeStyle = '#1a141c'; ctx.lineWidth = 0.9;
+    ctx.strokeStyle = pal.needle; ctx.lineWidth = 0.9;
     ctx.beginPath(); ctx.moveTo(-5, -0.5); ctx.lineTo(-13, 1.4); ctx.stroke();
-    ctx.fillStyle = '#b6ff3b';
+    ctx.fillStyle = pal.drip;
     const drip = (time * 1.5 + b.phase) % 1;
     ctx.beginPath(); ctx.ellipse(-12.6, 2.2 + drip * 3, 0.6, 0.6 + drip * 0.5, 0, 0, Math.PI * 2); ctx.fill();
     // Antennes plumeuses sombres
@@ -1914,14 +2173,16 @@
     ctx.beginPath(); ctx.moveTo(-3.8, -2.8); ctx.quadraticCurveTo(-5.5, -5.5, -7.5, -5.6); ctx.moveTo(-3, -3); ctx.quadraticCurveTo(-4, -6.2, -5.8, -6.8); ctx.stroke();
     // Deux yeux rouges qui brillent, sourcils froncés
     ctx.save();
-    ctx.shadowColor = '#ff2a40'; ctx.shadowBlur = 6;
-    ctx.fillStyle = '#ff2a40';
+    glow(-3.2, -1.4, 3.6, pal.eyeRGB, 0.8);
+    ctx.fillStyle = pal.eye;
     ctx.beginPath(); ctx.arc(-3.9, -1.3, 0.95, 0, Math.PI * 2); ctx.arc(-2.4, -1.5, 0.75, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    ctx.fillStyle = '#ffe0e0';
+    ctx.fillStyle = pal.eyeLight;
     ctx.beginPath(); ctx.arc(-4.1, -1.6, 0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.7;
-    ctx.beginPath(); ctx.moveTo(-5.4, -3.1); ctx.lineTo(-3.3, -2.3); ctx.moveTo(-3.2, -3.2); ctx.lineTo(-1.6, -2.6); ctx.stroke();
+    if (pal.angry) {   // sourcils froncés, seulement pour le moustique de suie
+      ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(-5.4, -3.1); ctx.lineTo(-3.3, -2.3); ctx.moveTo(-3.2, -3.2); ctx.lineTo(-1.6, -2.6); ctx.stroke();
+    }
     ctx.restore();
   }
   function drawBugs() {
@@ -1929,7 +2190,7 @@
       const a = 0.5 + 0.5 * Math.abs(Math.sin(time * 12));
       ctx.fillStyle = `rgba(255,70,90,${a})`;
       for (const k of [0, 1, 2]) {
-        const x = W - 16 - SAFE.r - k * 17;
+        const x = W - (16 + SAFE.r) / VS - k * 17;
         ctx.beginPath(); ctx.moveTo(x, sw.y - 15); ctx.lineTo(x - 14, sw.y); ctx.lineTo(x, sw.y + 15); ctx.lineTo(x - 5, sw.y); ctx.closePath(); ctx.fill();
       }
     }
@@ -2297,19 +2558,32 @@
     ctx.save();
     ctx.lineCap = 'round';
     for (const s of spits) {
+      if (s.dart) {   // dard de nectar : petit trait doré, cerné d'encre
+        const len = 11;
+        ctx.strokeStyle = 'rgba(255,230,120,0.25)'; ctx.lineWidth = 9;   // lueur
+        ctx.beginPath(); ctx.moveTo(s.x - len, s.y - s.vy * 0.012); ctx.lineTo(s.x, s.y); ctx.stroke();
+        ctx.strokeStyle = 'rgba(36,26,46,0.8)'; ctx.lineWidth = 4.2;
+        ctx.beginPath(); ctx.moveTo(s.x - len, s.y - s.vy * 0.012); ctx.lineTo(s.x, s.y); ctx.stroke();
+        ctx.strokeStyle = '#fff1a8'; ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.moveTo(s.x - len, s.y - s.vy * 0.012); ctx.lineTo(s.x, s.y); ctx.stroke();
+        continue;
+      }
       const age = 1.6 - s.life;
       const sap = s.kind === 'sap';
       const R = 9 + s.r * 1.6 + Math.min(age, 0.6) * 16;        // l'onde s'élargit en avançant
       const span = 0.75 + Math.sin(time * 30 + s.spin) * 0.05;  // léger frémissement « magnétique »
       const col = sap ? [214, 255, 120] : [190, 235, 255];
-      ctx.shadowColor = rgb(col, 0.9);
-      ctx.shadowBlur = sap ? 10 : 6;
+      const thick = s.r > 10 ? 1.6 : 1;   // la grande onde est plus épaisse
+      // lueur : un trait large et transparent sous le front de l'onde (au lieu d'un flou coûteux)
+      ctx.strokeStyle = rgb(col, sap ? 0.22 : 0.16);
+      ctx.lineWidth = (sap ? 10 : 7) * thick;
+      ctx.beginPath(); ctx.arc(s.x - R, s.y, R, -span, span); ctx.stroke();
       // trois arcs concentriques : le front, puis deux échos qui s'estompent
       for (let k = 0; k < 3; k++) {
         const rr = R - k * 5;
         if (rr <= 2) continue;
         ctx.strokeStyle = rgb(k === 0 ? mix(col, [255, 255, 255], 0.5) : col, [0.95, 0.55, 0.28][k]);
-        ctx.lineWidth = (sap ? 3.2 : 2.4) * (1 - k * 0.25) * (s.r > 10 ? 1.6 : 1);   // la grande onde est plus épaisse
+        ctx.lineWidth = (sap ? 3.2 : 2.4) * (1 - k * 0.25) * thick;
         ctx.beginPath();
         ctx.arc(s.x - k * 7 - rr, s.y, rr, -span, span);   // les échos suivent le front de l'onde
         ctx.stroke();
@@ -2605,18 +2879,21 @@
   function drawHUD() {
     ctx.save();
     ctx.textBaseline = 'top';
-    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 6;
-    ctx.fillStyle = '#fff';
-    const L = 16 + SAFE.l, R = W - 16 - SAFE.r, T = 14 + SAFE.t;
+    ctx.lineJoin = 'round';
+    // Texte cerné d'un contour sombre : lisible sur tous les fonds, sans flou coûteux
+    const label = (txt, x, y, color) => {
+      ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(20,14,28,0.6)'; ctx.strokeText(txt, x, y);
+      ctx.fillStyle = color; ctx.fillText(txt, x, y);
+    };
+    const L = 16 + SAFE.l, R = SW - 16 - SAFE.r, T = 14 + SAFE.t;
     ctx.font = '800 18px Nunito, system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('Score ' + score, L, T);
+    label('Score ' + score, L, T, '#fff');
     ctx.font = '800 13px Nunito, system-ui, sans-serif';
-    ctx.fillText('Ventre', L, T + 28);
+    label('Ventre', L, T + 28, '#fff');
     ctx.textAlign = 'right';
     ctx.font = '800 14px Nunito, system-ui, sans-serif';
-    ctx.fillText('Monde guéri ' + Math.round(health * 100) + ' %', R, T);
-    ctx.shadowBlur = 0;
+    label('Monde guéri ' + Math.round(health * 100) + ' %', R, T, '#fff');
 
     // Jauge du ventre
     const w = player.belly / BELLY_MAX;
@@ -2632,10 +2909,26 @@
     if (lvl) {
       ctx.font = '800 12px Nunito, system-ui, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillStyle = '#fff1a8';
-      ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 5;
-      ctx.fillText(LEVELS[lvl].name.replace(' !', ''), bx, by + 15);
-      ctx.shadowBlur = 0;
+      label(LEVELS[lvl].name.replace(' !', ''), bx, by + 15, '#fff1a8');
+    }
+    if (lvl === 4) {   // temps restant de méga-onde
+      const m = Math.max(0, player.megaT / MEGA_TIME), blink = player.megaT < 2 && Math.sin(time * 18) > 0;
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(bx, by + 31, bw, 5);
+      ctx.fillStyle = blink ? '#fff' : '#ffe27a'; ctx.fillRect(bx, by + 31, bw * m, 5);
+    }
+
+    // Jauge des moustiques libérés
+    const fy = by + (lvl === 4 ? 44 : 34);
+    ctx.font = '800 12px Nunito, system-ui, sans-serif'; ctx.textAlign = 'left';
+    label('Libérés', L, fy - 2, '#bff5e4');
+    for (let k = 0; k < KILLS_FOR_ALLY; k++) {
+      const sx = bx + k * (bw / KILLS_FOR_ALLY) + 1, sw = bw / KILLS_FOR_ALLY - 2;
+      ctx.fillStyle = k < freed ? '#bff5e4' : 'rgba(0,0,0,.35)';
+      ctx.fillRect(sx, fy, sw, 7);
+    }
+    for (let k = 0; k < allies.filter(a => !a.leaving).length; k++) {   // un petit point vert par allié présent
+      ctx.fillStyle = '#d8ff6a'; ctx.beginPath(); ctx.arc(bx + bw + 10 + k * 11, fy + 3.5, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 1.2; ctx.stroke();
     }
 
     // Jauge de guérison
@@ -2646,6 +2939,7 @@
   }
 
   function render() {
+    worldTransform();
     ctx.save();
     if (shakeT > 0) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
     drawSky();
@@ -2667,6 +2961,7 @@
     drawBugs();
     drawSpits();
     drawBeams();
+    for (const a of allies) drawAlly(a);
     if (player.alive && !(player.inv > 0 && Math.floor(time * 14) % 2)) drawGloub();
     drawParticles();
     drawSpirits();
@@ -2675,13 +2970,18 @@
     drawTexts();
     ctx.restore();
     drawPaper();
-    if (state === 'play') drawHUD();   // sur l'écran de fin, la carte de scores prend le relais
+    if (state === 'play') {   // HUD et annonces en pixels d'écran : ils restent lisibles sur petit écran
+      screenTransform();
+      drawHUD(); drawAnnounce();
+    }   // sur l'écran de fin, la carte de scores prend le relais
   }
 
   // ---------- Boucle ----------
   function loop(t) {
-    const dt = Math.min((t - lastTime) / 1000 || 0, 1 / 30);
+    const raw = (t - lastTime) / 1000 || 0;
+    const dt = Math.min(raw, 1 / 30);
     lastTime = t;
+    watchPerf(raw);
     update(dt);
     render();
     requestAnimationFrame(loop);
