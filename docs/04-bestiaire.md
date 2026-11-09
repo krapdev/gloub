@@ -39,7 +39,8 @@ Un esprit de la forêt chauve-souris. Il vole en battant des ailes, émet des on
   - le cœur est fait des mêmes touffes de ronces que les colonnes, peintes en passes de gouache, avec des épines tout autour et des veines toxiques vertes qui pulsent à chaque battement ;
   - quatre lianes épineuses l'ancrent au ciel et au sol ;
   - la cuve est rouillée, fendue d'une fissure lumineuse, avec des coulures de boue toxique et un panneau de danger ;
-  - chaque bulbe a un anneau de vie ; crevé, il devient une petite fleur rose.
+  - chaque bulbe a un anneau de vie ; crevé, il devient une petite fleur rose. Les bulbes, ses « yeux », sont toujours dessinés au premier plan, devant les tentacules, pour qu'on voie où viser ;
+  - sa racine d'attaque est un tentacule de ronce : épaisse à la base, effilée au bout, épines sur le dos et nœuds clairs dessous comme des ventouses, sortant d'un bourrelet de ronces collé au cœur. Elle ondule en jaillissant, puis s'enroule en se retirant.
 - **À la victoire** : il fleurit en une grande fleur rose au cœur doré, ses lianes se dessèchent et la mousse recouvre la cuve.
 
 ### Les obstacles

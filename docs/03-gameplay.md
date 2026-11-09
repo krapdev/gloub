@@ -113,7 +113,7 @@ Une partie a maintenant un but : guérir la forêt, puis vaincre la source de sa
 
 **Les attaques sont toujours annoncées** :
 
-- **Racine** : une bande rouge clignote 1 s, avec des chevrons qui pointent vers Gloub. Puis la racine jaillit en 0,3 s, reste 0,35 s et se retire. Elle est incassable et arrête les ondes.
+- **Racine** : une bande rouge clignote 1 s, avec des chevrons qui pointent vers Gloub. Puis la racine jaillit en 0,3 s comme le bras d'une pieuvre : elle dépasse un peu, revient, et une onde la parcourt de la base à la pointe. Elle reste 0,35 s, puis se retire en enroulant sa pointe. Son ondulation reste dans la bande annoncée. Elle est incassable et arrête les ondes.
 - **Graines** : le cœur se gonfle d'une lueur verte pendant 0,7 s, puis les crache en cloche vers Gloub. Elles sont visées autour de lui, à environ 105 unités d'écart, et arrivent l'une après l'autre. Une onde suffit à en détruire une.
 - **Nuée** : les mêmes chevrons rouges qu'en forêt.
 
