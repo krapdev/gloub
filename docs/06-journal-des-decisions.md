@@ -92,7 +92,15 @@ Les choix de conception, dans l'ordre où ils ont été pris.
 - **Le monde est maintenant calculé dans une taille logique fixe**, mise à l'échelle de l'écran.
 - **Rendu optimisé** : caches, plus de flou calculé, et une finesse de rendu qui s'adapte à la fluidité mesurée.
 
-## 11. La diffusion
+## 11. Le voyage et le Cœur de ronce
+
+- **Une partie a un but** : guérir la forêt à 100 %, puis vaincre le Cœur de ronce, la source de la maladie.
+- **La guérison est ralentie** (+0,3 % par ronce purifiée au lieu de +3,5 %) pour que la forêt dure 2 à 3 minutes.
+- **Le boss** : 5 bulbes à crever, 3 phases, des attaques toujours annoncées, des mûres pour garder sa puissance. Il fleurit à la victoire.
+- **Si Gloub tombe pendant le combat**, on reprend au début du combat.
+- **Prochaine étape prévue** : la ville en ruine, puis la décharge et l'usine ([étapes et boss](07-etapes-et-boss.md)).
+
+## 12. La diffusion
 
 - **Copie dans le dossier** `Documents/GitHub/gloub`.
 - **Application installable (PWA)** : jouable hors ligne, avec une icône dessinée par le jeu et des polices embarquées. L'écran titre est adapté au téléphone en paysage.
@@ -102,5 +110,5 @@ Les choix de conception, dans l'ordre où ils ont été pris.
 
 - Réintroduire des **ennemis plus variés** : corbeaux de goudron, ou retour des pièges ?
 - Des **événements de décor**, comme un immeuble qui s'effondre ?
-- Une **fin** ou des **paliers** (monde guéri à 100 %) ? Aujourd'hui, la partie est infinie.
+- Les **paysages suivants** (ville en ruine, décharge et usine) et un **second voyage** plus difficile après la victoire.
 - Du **son** : le jeu est muet pour l'instant.

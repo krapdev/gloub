@@ -185,7 +185,7 @@
     </div>
     <div class="bottom">
       <div class="card" id="ov-text">
-        <p class="story">La forêt étouffe sous des ronces malades. Gloub les perce de ses ondes pour la faire refleurir.</p>
+        <p class="story">La forêt étouffe sous des ronces malades. Gloub les perce de ses ondes pour la faire refleurir, jusqu'au Cœur de ronce qui la rend malade.</p>
         <ul class="rules">
           <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
             <path d="M15 6 L9 12 M15 6 L21 12 M15 6 V20" stroke="#241a2e" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
@@ -365,10 +365,14 @@
   let traps = [], beams = [], megas = [], flashT = 0;
   // Moustiques libérés : chaque moustique abattu remplit une jauge ; pleine, un moustique purifié rejoint Gloub et l'aide
   const KILLS_FOR_ALLY = 8, MAX_ALLIES = 2;
+  const ALLY_TIP_X = 14.2 * 2.3, ALLY_TIP_Y = -0.5 * 2.3;   // bout de l'aiguille de l'allié, par rapport à son corps
   let allies = [], freed = 0;
   let bugs = [], swarms = [], swarmTimer = 4;   // moustiques de suie, et nuées annoncées   // pièges posés dans les passages (plante carnivore, épines)
   let player, spits, cells, pickups, flowers, particles, texts, motes, layers, props, fore, clouds, winds, spirits;
   let shootTimer = 0, columnTimer = 0, shakeT = 0, overTime = 0;
+  // Voyage : paysage en cours, phase (travel : on le guérit ; calm : il refleurit ; boss : le Cœur de ronce)
+  let stage = 0, phase = 'travel', phaseT = 0, boss = null, scroll = 1, runTime = 0, freedTotal = 0;
+  let checkpoint = null, retryBoss = false;   // si Gloub tombe pendant le combat, on reprend au début du combat
 
   // ---------- Décor en parallaxe, peint en volume ----------
   // Chaque élément est peint une fois en deux versions (monde malade / monde guéri),
@@ -678,22 +682,34 @@
     motes = makeMotes(); layers = makeLayers(); props = makeProps(); fore = makeFore();
     clouds = makeClouds(); winds = makeWinds(); spirits = [];
     shootTimer = 0; columnTimer = 1.4; shakeT = 0;
+    stage = 0; phase = 'travel'; phaseT = 0; boss = null; scroll = 1; runTime = 0; freedTotal = 0;
   }
   reset();
 
   function start() {
+    const retry = retryBoss && checkpoint;
     reset();
     announce = null; holdT = 0;
     state = 'play';
     overlay.style.display = 'none';
-    // Première goutte de pollution offerte pour découvrir la sève
-    pickups.push(makeBerry(W * 0.72, H * 0.45));
+    if (retry) {   // Gloub était tombé pendant le combat : on reprend au début du combat, avec un peu de sève
+      score = checkpoint.score; runTime = checkpoint.time; freedTotal = checkpoint.freed;
+      player.belly = checkpoint.belly; health = 1;
+      startBoss();
+    } else {
+      checkpoint = null;
+      // Première mûre offerte pour découvrir la sève
+      pickups.push(makeBerry(W * 0.72, H * 0.45));
+      announceStage();
+    }
+    retryBoss = false;
   }
 
   // Choc : Gloub recrache une goutte (une explosion qui dégage les ronces autour de lui).
   // Le ventre vide, le choc est fatal.
   function hurt(px) {
     if (player.inv > 0 || state !== 'play') return;
+    if (boss && boss.dying >= 0) return;   // le Cœur est vaincu : plus rien ne peut blesser Gloub pendant la floraison
     if (sapLevel() === 0) { die(); return; }
     player.belly = Math.max(0, player.belly - BELLY_PER_PICKUP);
     player.megaT = 0;
@@ -721,7 +737,7 @@
     if (state === 'play') {
       freed++;
       if (freed >= KILLS_FOR_ALLY) {
-        freed = 0;
+        freed = 0; freedTotal++;
         if (allies.length < MAX_ALLIES) {
           const px = W * PLAYER_X_RATIO;
           allies.push({ x: b.x, y: b.y, t: 0, shootT: 0.3, leaving: false, slot: allies.some(a => a.slot === 0) ? 1 : 0 });
@@ -734,7 +750,7 @@
     particles.push({ x: b.x, y: b.y, vx: rand(-20, 20), vy: -45, life: 1.2, max: 1.2, color: '#ffffff', r: 2.6, rot: 0, vr: 0, shape: 'dot', nograv: true });
   }
   function updateBugs(dt, speed, px, diff) {
-    if (state === 'play' && distance > 800) {
+    if (state === 'play' && phase === 'travel' && distance > 800) {
       swarmTimer -= dt;
       if (swarmTimer <= 0) {   // une nuée est annoncée sur le bord droit avant d'entrer
         swarms.push({ y: rand(70, H - GROUND_H - 70), warn: 0.9, n: 3 + ((Math.random() * (2 + diff * 3)) | 0) });
@@ -785,15 +801,17 @@
       const tx = px - 36 + Math.sin(a.t * 2 + a.slot * 3) * 6;
       const ty = player.y + (a.slot ? 58 : -56) + Math.sin(a.t * 3.1 + a.slot) * 7;
       const k = 1 - Math.exp(-dt * 6);
-      a.x += (tx - a.x) * k; a.y += (ty - a.y) * k;
+      a.x += (tx - a.x) * k;
+      if (!(a.burst % 6)) a.y += (ty - a.y) * k;   // pendant une rafale, il se stabilise : les 6 dards partent en ligne droite
       if (state !== 'play') continue;
       // Petite mitraillette : des rafales de dards de nectar tirés par l'aiguille
       a.shootT -= dt;
       if (a.shootT <= 0) {
         a.burst = (a.burst || 0) + 1;
         a.shootT = a.burst % 6 ? 0.075 : 0.45;   // rafale de 6 dards, puis une courte pause
-        const tipX = a.x + 30, tipY = a.y + 3;
-        spits.push({ x: tipX, y: tipY + rand(-1.5, 1.5), vx: SPIT_SPEED * 1.25, vy: rand(-25, 25), kind: 'sap', level: 1, r: 2.5, dmg: 1, hitsLeft: 1, hit: new Set(), life: 0.9, spin: 0, dart: true });
+        // le dard part du bout de l'aiguille (à 14 unités du corps, échelle 2,3), bien droit
+        const tipX = a.x + ALLY_TIP_X - (a.kick || 0) * 2.5, tipY = a.y + ALLY_TIP_Y;
+        spits.push({ x: tipX, y: tipY, vx: SPIT_SPEED * 1.25, vy: 0, kind: 'sap', level: 1, r: 2.5, dmg: 1, hitsLeft: 1, hit: new Set(), life: 0.9, spin: 0, dart: true });
         a.flash = 0.05; a.kick = 1;
       }
       a.flash = Math.max(0, (a.flash || 0) - dt);
@@ -814,11 +832,618 @@
     drawBug({ x: a.x - (a.kick || 0) * 2.5, y: a.y, t: a.t, phase: a.slot * 2 }, BUG_FREED);   // léger recul à chaque tir
     if (a.flash > 0) {   // éclair de tir au bout de l'aiguille
       ctx.fillStyle = 'rgba(255,241,168,0.9)';
-      ctx.beginPath(); ctx.arc(a.x + 31, a.y + 3, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(a.x + ALLY_TIP_X + 1, a.y + ALLY_TIP_Y, 4.5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(a.x + 31, a.y + 3, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(a.x + ALLY_TIP_X + 1, a.y + ALLY_TIP_Y, 2, 0, Math.PI * 2); ctx.fill();
     }
     ctx.restore();
+  }
+
+  // ---------- Paysages et boss ----------
+  // Une partie est un voyage : on guérit le paysage (« Monde guéri » à 100 %), il refleurit, puis vient
+  // le Cœur de ronce, la source de la maladie. Pour l'instant, un seul paysage : la forêt.
+  const STAGES = [
+    { name: 'La forêt étouffée', sub: 'Guéris-la à 100 %', cleared: 'La forêt respire !' },
+  ];
+  const CALM_TIME = 3.5;          // secondes de calme quand un paysage est guéri
+  // Guérison apportée par une ronce purifiée (sève) ou simplement arrachée (salive).
+  // Réglée pour qu'un paysage dure environ 2 à 3 minutes.
+  const HEAL_SAP = 0.003, HEAL_SALIVA = 0.0004;
+  const BOSS_R = 150;             // rayon du Cœur de ronce (unités logiques)
+  // Bulbes du Cœur, en fractions du rayon : quatre autour, et le bulbe central (protégé jusqu'à la phase 3)
+  // (rayon en unités, points de vie : une onde de sève en retire 4, la salive 0,25, une méga-onde 45)
+  const BOSS_BULBS = [[-0.66, -0.34, 20, 180], [-0.84, 0.16, 20, 180], [-0.5, 0.56, 20, 180], [-0.12, -0.58, 20, 180], [-0.3, 0.06, 27, 300]];
+
+  function announceStage() {
+    const st = STAGES[stage];
+    announce = { txt: st.name, sub: st.sub, color: '#f6eedd', up: true, t: 0, dur: 2.6 };
+  }
+
+  function updateStage(dt, px) {
+    runTime += dt;
+    if (phase === 'travel' && health >= 1) {   // paysage guéri : plus de colonnes, il refleurit
+      phase = 'calm'; phaseT = 0; score += 500;
+      announce = { txt: STAGES[stage].cleared, sub: '+500 · le paysage refleurit', color: '#9be86f', up: true, t: 0, dur: 2.6 };
+      for (let i = 0; i < 26; i++) {
+        const life = rand(3, 5);
+        spirits.push({ x: rand(0, W), y: rand(H * 0.3, H - GROUND_H), vx: rand(-50, -10), vy: rand(-50, -15), life, max: life, ph: Math.random() * 6 });
+      }
+    }
+    if (phase === 'calm') {
+      phaseT += dt;
+      if (phaseT > CALM_TIME) {
+        if (stage < STAGES.length - 1) { stage++; phase = 'travel'; health = 0; announceStage(); }   // paysages suivants (à venir)
+        else startBoss();
+      }
+    }
+    if (phase === 'boss') updateBoss(dt, px);
+  }
+
+  // Forme du cœur : contour, touffes de ronces qui le remplissent, épines, veines toxiques (en fractions du rayon)
+  const HEART = (() => {
+    const rot = 0.32, cs = Math.cos(rot), sn = Math.sin(rot), outline = [];
+    for (let i = 0; i < 72; i++) {
+      const t = (i / 72) * Math.PI * 2;
+      const x = (16 * Math.sin(t) ** 3) / 17, y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 17 + 0.08;
+      outline.push([x * cs - y * sn, x * sn + y * cs]);
+    }
+    const inside = (x, y) => {
+      let c = false;
+      for (let i = 0, j = outline.length - 1; i < outline.length; j = i++) {
+        const [xi, yi] = outline[i], [xj, yj] = outline[j];
+        if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    };
+    const blobs = [];
+    for (let y = -1.05; y <= 1.15; y += 0.15) {
+      for (let x = -1.15; x <= 1.15; x += 0.15) {
+        const jx = x + rand(-0.045, 0.045), jy = y + rand(-0.045, 0.045);
+        if (inside(jx * 1.1, jy * 1.1)) blobs.push([jx, jy, rand(0.15, 0.2)]);
+      }
+    }
+    for (let i = 0; i < outline.length; i += 2) blobs.push([outline[i][0] * 0.9, outline[i][1] * 0.9, rand(0.1, 0.14)]);
+    const thorns = [];
+    for (let i = 0; i < outline.length; i += 3) {
+      const [x, y] = outline[i], d = Math.hypot(x, y - 0.1) || 1;
+      thorns.push([x * 0.97, y * 0.97, x / d, (y - 0.1) / d]);
+    }
+    const veins = [];
+    for (let k = 0; k < 7; k++) {
+      const a = (k / 7) * Math.PI * 2 + 0.4, pts = [[-0.3, 0.06]];
+      for (let s = 1; s <= 4; s++) pts.push([-0.3 + Math.cos(a) * s * 0.17 + rand(-0.05, 0.05), 0.06 + Math.sin(a) * s * 0.17 + rand(-0.05, 0.05)]);
+      veins.push(pts);
+    }
+    return { outline, blobs, thorns, veins };
+  })();
+
+  function startBoss() {
+    phase = 'boss'; phaseT = 0;
+    if (!checkpoint) checkpoint = { score, time: runTime, freed: freedTotal, belly: Math.max(player.belly, BELLY_PER_PICKUP * 2) };
+    const tx = W - BOSS_R - 70;
+    boss = {
+      x: W + BOSS_R * 1.6, sx: W + BOSS_R * 1.6, tx, y: (H - GROUND_H) * 0.47, t: 0, enter: 0, stage: 0, rate: 1, beat: 0, beatT: 0,
+      bulbs: BOSS_BULBS.map(([ox, oy, r, hp], i) => ({ ox: ox * BOSS_R, oy: oy * BOSS_R, r, hp, max: hp, alive: true, hitT: 0, core: i === 4, bloom: 0 })),
+      roots: [], seeds: [], charge: null, attackT: 2.2, dropT: 7, dying: -1, open: 0, flower: 0, lastAtk: '',
+    };
+    makeCurtain();
+    announce = { txt: 'Le Cœur de ronce', sub: 'Crève ses 5 bulbes lumineux', color: '#ff9db5', up: true, t: 0, dur: 3 };
+  }
+
+  // La carapace : un rideau de ronces devant le Cœur, avec quelques bulbes à mûres. Il ne repousse pas.
+  function makeCurtain() {
+    const top = 8, bot = H - GROUND_H - 6, x0 = -BOSS_R - 105;
+    let prev = [];
+    for (let y = top, row = 0; y < bot; y += ROW_H, row++) {
+      const cur = [];
+      for (let k = 0; k < 3; k++) {
+        const ox = x0 + k * CELL_W * 0.92 + Math.sin(row * 0.7) * 9 + (row % 2) * CELL_W * 0.4;
+        const c = makeCell(boss.x + ox, y + rand(-3, 3), Math.random() < 0.08 ? 'pod' : 'bramble', CELL_R * rand(0.92, 1.08));
+        c.anchor = ox;
+        let best = null, bd = CELL_W * 1.6;
+        for (const p of prev) { const d = Math.abs(p.x - c.x); if (d < bd) { bd = d; best = p; } }
+        c.link = best;
+        cells.push(c); cur.push(c);
+      }
+      prev = cur;
+    }
+  }
+
+  function updateBoss(dt, px) {
+    const b = boss;
+    if (!b) return;
+    b.t += dt;
+    if (b.enter < 1) {   // il arrive par la droite, et le défilement ralentit jusqu'à presque s'arrêter
+      b.enter = Math.min(1, b.enter + dt / 3);
+      const e = 1 - (1 - b.enter) ** 3;
+      b.x = b.sx + (b.tx - b.sx) * e;
+    }
+    scroll += ((b.enter >= 1 ? 0.18 : 1) - scroll) * Math.min(1, dt * 1.5);
+    if (b.dying < 0 && health > 0.3) health = Math.max(0.3, health - dt * 0.22);   // il empoisonne de nouveau la vallée
+    for (const c of cells) if (c.anchor !== undefined) c.x = b.x + c.anchor;
+
+    const gone = b.bulbs.filter(q => !q.alive).length;
+    const st = gone >= 4 ? 3 : gone >= 2 ? 2 : 1;
+    if (b.enter >= 1 && b.dying < 0 && st !== b.stage) {
+      if (b.stage) {
+        announce = st === 2
+          ? { txt: 'Le Cœur s\'énerve !', sub: 'Graines toxiques et nuées', color: '#ff9db5', up: true, t: 0, dur: 2.2 }
+          : { txt: 'Le cœur est à nu !', sub: 'Crève le bulbe central', color: '#ffe27a', up: true, t: 0, dur: 2.2 };
+        shakeT = 0.3;
+      }
+      b.stage = st;
+    }
+    b.rate = b.dying >= 0 ? 0 : b.stage === 3 ? 1.7 : b.stage === 2 ? 1.3 : 1;
+    b.beatT += dt * b.rate;
+    const u = b.beatT % 1.3;   // battement en deux temps : boum-boum
+    b.beat = Math.exp(-((u / 0.07) ** 2)) + 0.6 * Math.exp(-(((u - 0.22) / 0.07) ** 2));
+    if (b.stage === 3) b.open = Math.min(1, b.open + dt * 0.8);
+    for (const q of b.bulbs) { q.hitT = Math.max(0, q.hitT - dt); if (!q.alive) q.bloom = Math.min(1, q.bloom + dt * 1.5); }
+
+    updateRoots(dt, px);
+    updateSeeds(dt, px);
+    if (b.dying >= 0) { updateBossDeath(dt); return; }
+    if (b.enter < 1) return;
+
+    // Attaques, toujours annoncées
+    b.attackT -= dt;
+    if (b.attackT <= 0) {
+      let a;
+      if (b.stage === 1) a = 'root';
+      else if (b.stage === 2) a = pick(['root', 'seeds', 'seeds', 'swarm']);
+      else a = b.lastAtk === 'root' ? 'seeds' : 'root';
+      if (a === 'root' && b.roots.length) a = 'seeds';
+      if (a === 'seeds' && b.charge) a = 'root';
+      if (a === 'root') b.roots.push({ y: clamp(player.y + rand(-45, 45), 50, H - GROUND_H - 50), half: 24, t: 0, tip: b.x - BOSS_R * 0.7 });
+      else if (a === 'seeds') b.charge = { t: 0, n: b.stage === 3 ? 3 : 2 };
+      else swarms.push({ y: rand(70, H - GROUND_H - 70), warn: 0.9, n: 4 });
+      b.lastAtk = a;
+      b.attackT = b.stage === 1 ? rand(2.4, 3.2) : b.stage === 2 ? rand(1.9, 2.6) : rand(1.5, 2);
+    }
+    // Des mûres pour garder (ou retrouver) sa puissance pendant le combat
+    if (b.stage >= 2) {
+      b.dropT -= dt;
+      if (b.dropT <= 0) {
+        b.dropT = b.stage === 3 ? 5 : 9;
+        const berry = makeBerry(b.x - BOSS_R - 30, clamp(player.y + rand(-90, 90), 60, H - GROUND_H - 60));
+        berry.vx = -170;
+        pickups.push(berry);
+      }
+    }
+  }
+
+  // Racine qui fouette une bande de l'écran : lueur rouge 1 s avant, puis elle jaillit, reste un instant et se retire
+  const ROOT_WARN = 1, ROOT_OUT = 0.3, ROOT_HOLD = 0.35, ROOT_BACK = 0.4;
+  function updateRoots(dt, px) {
+    const b = boss;
+    for (const r of b.roots) {
+      r.t += dt;
+      const x0 = b.x - BOSS_R * 0.7, end = -60, t = r.t - ROOT_WARN;
+      if (t < 0) r.tip = x0;
+      else if (t < ROOT_OUT) { const e = t / ROOT_OUT; r.tip = x0 + (end - x0) * (1 - (1 - e) ** 3); }
+      else if (t < ROOT_OUT + ROOT_HOLD) r.tip = end;
+      else r.tip = end + (x0 - end) * Math.min(1, (t - ROOT_OUT - ROOT_HOLD) / ROOT_BACK);
+      if (t > 0 && t < ROOT_OUT && Math.random() < 0.6) burst(r.tip, r.y, '#5a3b63', 2, 'leaf');
+      if (state === 'play' && t > 0 && r.tip < px + PLAYER_R && Math.abs(player.y - r.y) < r.half + PLAYER_R * 0.55) hurt(px);
+    }
+    b.roots = b.roots.filter(r => r.t < ROOT_WARN + ROOT_OUT + ROOT_HOLD + ROOT_BACK && b.dying < 0);
+  }
+
+  // Graines toxiques : le Cœur se gonfle (lueur verte), puis les crache en cloche vers Gloub. Une onde les détruit.
+  function updateSeeds(dt, px) {
+    const b = boss, g = 380;
+    const ex = b.x - BOSS_R * 0.55, ey = b.y - BOSS_R * 0.05;
+    if (b.charge && b.dying < 0) {
+      b.charge.t += dt;
+      if (b.charge.t >= 0.7) {
+        const n = b.charge.n;
+        for (let i = 0; i < n; i++) {
+          const T = 1.15 + i * 0.28, ty = clamp(player.y + (i - (n - 1) / 2) * 105 + rand(-15, 15), 40, H - GROUND_H - 30);
+          const vx = -(ex - px) / T, vy = (ty - ey - 0.5 * g * T * T) / T;
+          b.seeds.push({ x: ex, y: ey, vx, vy, r: 13, t: 0, alive: true });
+        }
+        b.charge = null;
+      }
+    }
+    for (const s of b.seeds) {
+      if (!s.alive) continue;
+      s.t += dt; s.vy += g * dt; s.x += s.vx * dt; s.y += s.vy * dt;
+      if (s.y > H - GROUND_H - 4) { s.alive = false; burst(s.x, s.y, '#b6ff3b', 8, 'dot'); }
+      if (s.x < -40) s.alive = false;
+      if (s.alive && state === 'play' && touches(px, player.y, s.x, s.y, PLAYER_R * 0.7 + s.r)) { s.alive = false; burst(s.x, s.y, '#b6ff3b', 10, 'dot'); hurt(px); }
+    }
+    b.seeds = b.seeds.filter(s => s.alive);
+  }
+
+  // Une onde touche-t-elle le Cœur ? (bulbes, graines, racine, corps). Renvoie vrai si l'onde est absorbée.
+  function bossHit(s) {
+    const b = boss;
+    if (!b || b.enter < 1 || b.dying >= 0) return false;
+    for (const q of b.seeds) {
+      if (q.alive && touches(q.x, q.y, s.x, s.y, q.r + s.r)) { q.alive = false; burst(q.x, q.y, '#b6ff3b', 8, 'dot'); score += 5; return true; }
+    }
+    for (const r of b.roots) {
+      if (r.t > ROOT_WARN && s.x > r.tip && Math.abs(s.y - r.y) < r.half) { burst(s.x, s.y, '#6e4f7a', 2, 'dot'); return true; }
+    }
+    const k = 1 + 0.045 * b.beat;
+    for (const q of b.bulbs) {
+      if (!q.alive || (q.core && b.stage < 3)) continue;
+      if (touches(b.x + q.ox * k, b.y + q.oy * k, s.x, s.y, q.r + s.r)) {
+        damageBulb(q, s.kind === 'sap' ? s.dmg : s.dmg * 0.25, s.x, s.y);   // la salive égratigne à peine
+        return true;
+      }
+    }
+    const dx = (s.x - b.x) / (BOSS_R * 0.9), dy = (s.y - b.y - BOSS_R * 0.08) / (BOSS_R * 0.95);
+    if (dx * dx + dy * dy < 1) { burst(s.x, s.y, '#6e4f7a', 2, 'dot'); return true; }
+    return false;
+  }
+  function megaHitsBoss(m, prev) {
+    const b = boss;
+    if (!b || b.enter < 1 || b.dying >= 0) return;
+    for (const q of b.seeds) if (q.alive && q.x > prev - 20 && q.x <= m.x && Math.abs(q.y - m.y) < m.half) { q.alive = false; burst(q.x, q.y, '#b6ff3b', 8, 'dot'); }
+    for (const q of b.bulbs) {
+      if (!q.alive || (q.core && b.stage < 3)) continue;
+      const qx = b.x + q.ox, qy = b.y + q.oy;
+      if (qx > prev - 20 && qx <= m.x && Math.abs(qy - m.y) < m.half + q.r) damageBulb(q, 45, qx, qy);
+    }
+  }
+
+  function damageBulb(q, dmg, x, y) {
+    q.hp -= dmg; q.hitT = 0.12;
+    burst(x, y, '#e8ff8a', 3, 'dot');
+    if (q.hp > 0) return;
+    const b = boss, qx = b.x + q.ox, qy = b.y + q.oy;
+    q.alive = false;
+    score += 300;
+    shakeT = 0.25;
+    burst(qx, qy, '#b6ff3b', 16, 'dot');
+    burst(qx, qy, '#ffc6dd', 10, 'leaf');
+    floatText(qx, qy - 30, '+300', '#ffe27a');
+    health = Math.min(1, health + 0.04);
+    for (let i = 0; i < 3; i++) {
+      const life = rand(3, 5);
+      spirits.push({ x: qx + rand(-10, 10), y: qy, vx: rand(-60, -20), vy: rand(-50, -15), life, max: life, ph: Math.random() * 6 });
+    }
+    if (q.core) bossDefeated();
+  }
+
+  // Victoire : le Cœur se fige, tremble, puis fleurit ; la vallée guérit d'un coup
+  function bossDefeated() {
+    const b = boss;
+    b.dying = 0; b.charge = null;
+    score += 2000;
+    for (const s of b.seeds) burst(s.x, s.y, '#b6ff3b', 6, 'dot');
+    b.seeds = []; b.roots = [];
+    for (const g of bugs) if (g.alive) { g.alive = false; burst(g.x, g.y, '#ffffff', 6, 'dot'); }
+    swarms = [];
+    announce = { txt: 'Le Cœur est guéri !', sub: '+2000', color: '#ffe27a', up: true, t: 0, dur: 2.6 };
+  }
+  function updateBossDeath(dt) {
+    const b = boss;
+    const before = b.dying;
+    b.dying += dt;
+    if (b.dying < 1.8) {   // il tremble et se vide de son poison
+      shakeT = Math.max(shakeT, 0.05);
+      if (Math.random() < 0.5) burst(b.x + rand(-BOSS_R, BOSS_R) * 0.7, b.y + rand(-BOSS_R, BOSS_R) * 0.7, '#b6ff3b', 3, 'dot');
+    }
+    if (before < 1.8 && b.dying >= 1.8) {   // il fleurit
+      flashT = 0.6;
+      for (const c of cells) if (c.alive && c.anchor !== undefined) damageCell(c, { kind: 'sap', dmg: 99, x: c.x, y: c.y });
+    }
+    if (b.dying >= 1.8) {
+      b.flower = Math.min(1, (b.dying - 1.8) / 1.5);
+      health = Math.min(1, health + dt * 0.35);
+      if (b.dying < 6 && Math.random() < 0.6) {   // pluie de pétales
+        const life = rand(2.5, 4);
+        particles.push({ x: rand(0, W), y: -10, vx: rand(-60, 10), vy: rand(20, 60), life, max: life, color: pick(['#ffc6dd', '#ff9db5', '#ffffff', '#ffe9a8']), r: rand(3, 5), rot: rand(0, 6), vr: rand(-3, 3), shape: 'leaf' });
+      }
+    }
+    if (b.dying >= 6.5 && state === 'play') winGame();
+  }
+
+  function winGame() {
+    state = 'over';
+    overTime = performance.now();
+    retryBoss = false; checkpoint = null;
+    if (score > best) { best = score; try { localStorage.setItem('gloub-best', String(best)); } catch (e) { /* ignoré */ } }
+    const m = Math.floor(runTime / 60), s = Math.floor(runTime % 60);
+    ovTitle.textContent = 'La vallée refleurit !';
+    ovTitle.classList.add('small');
+    document.getElementById('ov-sub').textContent = 'le Cœur de ronce est guéri';
+    ovText.innerHTML = `<div class="stats">
+      <span>Score</span><b>${score}</b>
+      <span>Temps</span><b>${m} min ${String(s).padStart(2, '0')}</b>
+      <span>Moustiques libérés</span><b>${freedTotal}</b>
+      <span class="best">Record</span><b class="best">${best}</b>
+    </div>`;
+    ovCta.textContent = 'Tape pour un nouveau voyage';
+    overlay.style.display = 'flex';
+  }
+
+  // ---------- Dessin du Cœur de ronce ----------
+  // Peint comme les colonnes : touffes de ronces en passes de gouache (ombre, masse, ton moyen vers le soleil,
+  // lumière), soulignées d'encre côté ombre. La masse du cœur est peinte une fois dans une image en cache.
+  const heartCache = { cv: document.createElement('canvas'), rs: 0 };
+  function heartSprite() {
+    const rs = VS * PR, size = BOSS_R * 2.5;
+    if (heartCache.rs !== rs) {
+      const c = heartCache.cv;
+      c.width = Math.ceil(size * rs); c.height = Math.ceil(size * rs);
+      const g = c.getContext('2d'), k = BOSS_R;
+      g.setTransform(rs * k, 0, 0, rs * k, (size / 2) * rs, (size / 2) * rs);
+      const L = HEART.blobs;
+      g.fillStyle = 'rgba(20,10,25,0.35)'; blobsOn(g, L.map(([x, y, r]) => [x - 0.04, y + 0.06, r]));
+      g.fillStyle = BR_DARK; blobsOn(g, L);
+      g.fillStyle = BR_MID; blobsOn(g, L.map(([x, y, r]) => [x + r * 0.18, y - r * 0.22, r * 0.72]));
+      g.fillStyle = BR_LIGHT; blobsOn(g, L.map(([x, y, r]) => [x + r * 0.35, y - r * 0.42, r * 0.32]));
+      g.strokeStyle = 'rgba(36,26,46,0.55)'; g.lineWidth = 2 / k;
+      g.beginPath();
+      L.forEach(([x, y, r], i) => { if (i % 3 === 0) { g.moveTo(x + Math.cos(Math.PI * 0.55) * r * 0.95, y + Math.sin(Math.PI * 0.55) * r * 0.95); g.arc(x, y, r * 0.95, Math.PI * 0.55, Math.PI * 1.1); } });
+      g.stroke();
+      // épines tout autour
+      g.fillStyle = '#2e1d34';
+      g.beginPath();
+      for (const [x, y, nx, ny] of HEART.thorns) { const tx = -ny, ty = nx; g.moveTo(x + tx * 0.035, y + ty * 0.035); g.lineTo(x + nx * 0.13, y + ny * 0.13); g.lineTo(x - tx * 0.035, y - ty * 0.035); g.closePath(); }
+      g.fill();
+      g.fillStyle = THORN;
+      g.beginPath();
+      for (const [x, y, nx, ny] of HEART.thorns) { const tx = -ny, ty = nx, bx = x + nx * 0.06, by = y + ny * 0.06; g.moveTo(bx + tx * 0.012, by + ty * 0.012); g.lineTo(x + nx * 0.13, y + ny * 0.13); g.lineTo(bx - tx * 0.012, by - ty * 0.012); g.closePath(); }
+      g.fill();
+      heartCache.rs = rs;
+    }
+    return heartCache.cv;
+  }
+
+  // Une liane de ronce épaisse (ancre du cœur, ou racine qui fouette), peinte en trois passes
+  function thickVine(pts, w) {
+    const path = () => { ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]); };
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#24162a'; ctx.lineWidth = w + 5; path(); ctx.stroke();
+    ctx.strokeStyle = BR_DARK; ctx.lineWidth = w; path(); ctx.stroke();
+    ctx.save(); ctx.translate(2, -2.5);
+    ctx.strokeStyle = BR_MID; ctx.lineWidth = w * 0.55; path(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(176,132,186,0.5)'; ctx.lineWidth = Math.max(2, w * 0.14); ctx.translate(1.5, -2); path(); ctx.stroke();
+    ctx.restore();
+    // épines
+    ctx.fillStyle = THORN;
+    ctx.beginPath();
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], d = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / d, ny = (x1 - x0) / d, sd = i % 2 ? 1 : -1;
+      const bx = x1 + nx * sd * w * 0.42, by = y1 + ny * sd * w * 0.42;
+      ctx.moveTo(bx - (x1 - x0) / d * 4, by - (y1 - y0) / d * 4); ctx.lineTo(bx + nx * sd * 9, by + ny * sd * 9); ctx.lineTo(bx + (x1 - x0) / d * 4, by + (y1 - y0) / d * 4); ctx.closePath();
+    }
+    ctx.fill();
+  }
+  const quadPts = (x0, y0, cx, cy, x1, y1, n) => {
+    const out = [];
+    for (let i = 0; i <= n; i++) { const t = i / n, a = (1 - t) * (1 - t), b2 = 2 * (1 - t) * t, c = t * t; out.push([a * x0 + b2 * cx + c * x1, a * y0 + b2 * cy + c * y1]); }
+    return out;
+  };
+
+  // La cuve de déchets éventrée sur laquelle le cœur s'est enraciné
+  function drawTank(b) {
+    const ground = H - GROUND_H + 6, w = 230, cx = b.x + BOSS_R * 0.42, top = b.y + BOSS_R * 0.2, h = ground - top;
+    const x0 = cx - w / 2, moss = b.flower;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,10,25,0.35)'; ctx.fillRect(x0 - 8, top + 14, w, h);
+    ctx.fillStyle = '#4a2c22'; ctx.fillRect(x0, top, w, h);
+    ctx.fillStyle = '#7a4a32'; ctx.fillRect(x0 + w * 0.3, top, w * 0.5, h);
+    ctx.fillStyle = '#a8724a'; ctx.fillRect(x0 + w * 0.72, top, w * 0.1, h);
+    ctx.strokeStyle = 'rgba(36,26,46,0.6)'; ctx.lineWidth = 2.5;
+    for (const k of [0.3, 0.62]) { ctx.beginPath(); ctx.ellipse(cx, top + h * k, w / 2, 10, 0, 0.05, Math.PI - 0.05); ctx.stroke(); }
+    ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x0, top); ctx.lineTo(x0, ground); ctx.moveTo(x0 + w, top); ctx.lineTo(x0 + w, ground); ctx.stroke();
+    // ouverture du haut, pleine de boue toxique
+    ctx.fillStyle = '#3b2a20'; ctx.beginPath(); ctx.ellipse(cx, top, w / 2, 16, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = moss > 0 ? rgb(mix([127, 191, 42], [120, 190, 210], moss)) : '#7fbf2a';
+    ctx.beginPath(); ctx.ellipse(cx, top + 2, w / 2 - 10, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(cx, top, w / 2, 16, 0, 0, Math.PI * 2); ctx.stroke();
+    // fissure lumineuse, plus large quand le cœur est à nu
+    const crack = [[x0 + w * 0.2, top + 30], [x0 + w * 0.3, top + 60], [x0 + w * 0.24, top + 90], [x0 + w * 0.36, top + 125], [x0 + w * 0.3, top + 160]];
+    if (moss < 1) {
+      glow(x0 + w * 0.3, top + 95, 60 + b.open * 30, '182,255,59', (0.45 + 0.35 * b.beat) * (1 - moss));
+      ctx.strokeStyle = `rgba(182,255,59,${(0.8 + 0.2 * b.beat) * (1 - moss)})`; ctx.lineWidth = 4 + b.open * 4;
+      ctx.beginPath(); crack.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+      // coulures
+      ctx.fillStyle = `rgba(150,220,60,${0.85 * (1 - moss)})`;
+      for (const [dx, len] of [[0.45, 40], [0.58, 70], [0.86, 30]]) { ctx.beginPath(); ctx.ellipse(x0 + w * dx, top + 10 + len / 2, 4, len / 2, 0, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 2;
+    ctx.beginPath(); crack.forEach(([x, y], i) => (i ? ctx.lineTo(x + 3, y) : ctx.moveTo(x + 3, y))); ctx.stroke();
+    // panneau de danger
+    const hx = x0 + w * 0.7, hy = top + h * 0.45;
+    ctx.fillStyle = '#e8c440'; ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(hx, hy - 16); ctx.lineTo(hx + 16, hy + 12); ctx.lineTo(hx - 16, hy + 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#241a2e'; ctx.fillRect(hx - 1.5, hy - 6, 3, 10); ctx.fillRect(hx - 1.5, hy + 6, 3, 3);
+    // la mousse recouvre la cuve après la victoire
+    if (moss > 0) {
+      ctx.globalAlpha = moss;
+      ctx.fillStyle = '#5f9a4a';
+      blobs([[x0 + 20, top + 6, 18], [x0 + 60, top + 2, 22], [x0 + 110, top + 6, 20], [x0 + 160, top + 2, 22], [x0 + 210, top + 8, 18], [x0 + 30, ground - 20, 24], [x0 + 190, ground - 16, 22]]);
+      ctx.fillStyle = '#8fd96f';
+      blobs([[x0 + 64, top - 4, 12], [x0 + 162, top - 4, 12], [x0 + 34, ground - 30, 12]]);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  function drawBoss() {
+    const b = boss;
+    if (!b) return;
+    const k = 1 + 0.045 * b.beat * (1 - b.flower), f = b.flower;
+    drawTank(b);
+    // lianes qui ancrent le cœur au ciel et au sol
+    const anchors = [[-0.35, -0.6, -0.75, -40], [0.5, -0.55, 0.85, -40], [0.55, 0.5, 1.15, H - GROUND_H + 10], [-0.55, 0.62, -0.85, H - GROUND_H + 10]];
+    if (f < 1) {   // elles se dessèchent et disparaissent quand le cœur fleurit
+      ctx.save();
+      ctx.globalAlpha = 1 - f;
+      anchors.forEach(([ax, ay, ex, ey], i) => {
+        const x0 = b.x + ax * BOSS_R * k, y0 = b.y + ay * BOSS_R * k, x1 = b.x + ex * BOSS_R, y1 = ey;
+        const cx = (x0 + x1) / 2 + Math.sin(time * 1.3 + i) * 12, cy = (y0 + y1) / 2 + (i < 2 ? 20 : -20);
+        thickVine(quadPts(x0, y0, cx, cy, x1, y1, 9), 24);
+      });
+      ctx.restore();
+    }
+    // la masse du cœur, qui bat
+    const spr = heartSprite(), size = BOSS_R * 2.5 * k * (1 - f * 0.35);
+    ctx.globalAlpha = 1 - f * 0.45;
+    ctx.drawImage(spr, b.x - size / 2, b.y - size / 2, size, size);
+    ctx.globalAlpha = 1;
+    // veines toxiques qui pulsent
+    if (f < 1) {
+      ctx.save();
+      ctx.translate(b.x, b.y); ctx.scale(BOSS_R * k, BOSS_R * k);
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      for (const [w, a, c] of [[0.045, 0.22 + 0.4 * b.beat, '182,255,59'], [0.014, 0.35 + 0.5 * b.beat, '232,255,138']]) {
+        ctx.strokeStyle = `rgba(${c},${a * (1 - f)})`; ctx.lineWidth = w;
+        ctx.beginPath();
+        for (const v of HEART.veins) { ctx.moveTo(v[0][0], v[0][1]); for (let i = 1; i < v.length; i++) ctx.lineTo(v[i][0], v[i][1]); }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // bulbes (et fleurs là où ils ont été crevés)
+    for (const q of b.bulbs) {
+      const x = b.x + q.ox * k, y = b.y + q.oy * k;
+      if (q.core) drawCore(b, q, x, y);
+      else if (q.alive) drawBossBulb(b, q, x, y);
+      else smallFlower(x, y, q.r * 1.05 * q.bloom, q.ox);
+    }
+    // la grande fleur de la victoire
+    if (f > 0) bigFlower(b.x - BOSS_R * 0.2, b.y - BOSS_R * 0.05, f);
+    // gonflement avant de cracher des graines
+    if (b.charge) {
+      const e = Math.min(1, b.charge.t / 0.7), ex = b.x - BOSS_R * 0.55, ey = b.y - BOSS_R * 0.05;
+      glow(ex, ey, 30 + e * 40, '182,255,59', 0.5 + e * 0.5);
+      for (let i = 0; i < b.charge.n; i++) drawSeed(ex + (i - 1) * 12 * e, ey + Math.sin(time * 20 + i) * 3 * e, 4 + e * 7);
+    }
+  }
+
+  function drawBossBulb(b, q, x, y) {
+    const r = q.r * (1 + 0.08 * b.beat);
+    glow(x, y, r * 2.6, '182,255,59', 0.55 + 0.35 * b.beat);
+    const g = ctx.createRadialGradient(x + r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+    g.addColorStop(0, '#f4ffb0'); g.addColorStop(0.5, '#b6ff3b'); g.addColorStop(1, '#4f7a1a');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(x + r * 0.32, y - r * 0.38, r * 0.22, r * 0.14, -0.5, 0, Math.PI * 2); ctx.fill();
+    if (q.hitT > 0) { ctx.fillStyle = `rgba(255,255,255,${q.hitT * 5})`; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+    // anneau de vie
+    const fr = Math.max(0, q.hp / q.max);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(36,26,46,0.75)'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(x, y, r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fr); ctx.stroke();
+    ctx.strokeStyle = '#fff1a8'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, r + 7, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fr); ctx.stroke();
+  }
+
+  // Le bulbe central : un bouton fermé (protégé) qui s'ouvre en phase 3 sur un cœur lumineux
+  function drawCore(b, q, x, y) {
+    const o = b.open, r = q.r;
+    if (q.alive && o > 0.05) drawBossBulb(b, q, x, y);
+    if (!q.alive) { smallFlower(x, y, r * 1.4 * q.bloom, 1); return; }
+    if (o >= 1) return;
+    // pétales sombres qui l'enserrent, et la lueur qui filtre entre eux
+    glow(x, y, r * 1.8, '182,255,59', 0.25 + 0.25 * b.beat);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + 0.4, spread = o * 1.2, px = x + Math.cos(a) * (r * 0.35 + spread * r * 0.8), py = y + Math.sin(a) * (r * 0.35 + spread * r * 0.8);
+      ctx.save();
+      ctx.translate(px, py); ctx.rotate(a + Math.PI / 2);
+      ctx.globalAlpha = 1 - o;
+      ctx.fillStyle = i % 2 ? BR_DARK : BR_MID;
+      ctx.beginPath(); ctx.ellipse(0, 0, r * 0.62, r * 1.05, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function smallFlower(x, y, r, seed) {
+    if (r < 1) return;
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + seed;
+      ctx.fillStyle = i % 2 ? '#ff9db5' : '#ffc6dd';
+      ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.5, r * 0.32, a, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(36,26,46,0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(x, y, r * 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  function bigFlower(x, y, f) {
+    const R = BOSS_R * 1.05 * (1 - (1 - f) ** 3);
+    glow(x, y, R * 1.6, '255,240,200', 0.6 * f);
+    for (const [n, rr, w, c1, c2, off] of [[8, 1, 0.42, '#ff9db5', '#ffc6dd', 0], [8, 0.7, 0.34, '#ffc6dd', '#fff0f5', Math.PI / 8]]) {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + off + time * 0.05, px = x + Math.cos(a) * R * rr * 0.5, py = y + Math.sin(a) * R * rr * 0.5;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(a);
+        ctx.fillStyle = c1; ctx.beginPath(); ctx.ellipse(0, 0, R * rr * 0.5, R * w * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = c2; ctx.beginPath(); ctx.ellipse(R * 0.04, -R * 0.03, R * rr * 0.32, R * w * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(36,26,46,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 0, R * rr * 0.5, R * w * 0.5, 0, Math.PI * 0.4, Math.PI * 1.2); ctx.stroke();
+        ctx.restore();
+      }
+    }
+    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(x, y, R * 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#f0a84a'; ctx.beginPath(); ctx.arc(x + R * 0.04, y + R * 0.04, R * 0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, R * 0.2, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  function drawSeed(x, y, r) {
+    glow(x, y, r * 2.4, '182,255,59', 0.6);
+    ctx.fillStyle = '#3b2742'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#241a2e'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#b6ff3b'; ctx.beginPath(); ctx.arc(x - r * 0.15, y - r * 0.1, r * 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = THORN;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2 + 0.5; ctx.moveTo(x + Math.cos(a + 0.25) * r, y + Math.sin(a + 0.25) * r * 0.8); ctx.lineTo(x + Math.cos(a) * r * 1.5, y + Math.sin(a) * r * 1.2); ctx.lineTo(x + Math.cos(a - 0.25) * r, y + Math.sin(a - 0.25) * r * 0.8); ctx.closePath(); }
+    ctx.fill();
+  }
+
+  // Attaques au premier plan : bandes d'alerte, racines qui fouettent, graines en vol
+  function drawBossAttacks() {
+    const b = boss;
+    if (!b) return;
+    for (const r of b.roots) {
+      const x0 = b.x - BOSS_R * 0.7;
+      if (r.t < ROOT_WARN) {   // alerte : une bande rouge qui clignote, des chevrons qui pointent vers Gloub
+        const a = 0.1 + 0.08 * Math.sin(time * 22);
+        ctx.fillStyle = `rgba(255,70,90,${a})`; ctx.fillRect(0, r.y - r.half, x0, r.half * 2);
+        ctx.strokeStyle = 'rgba(255,90,110,0.75)'; ctx.lineWidth = 2; ctx.setLineDash([12, 9]); ctx.lineDashOffset = time * 60;
+        ctx.beginPath(); ctx.moveTo(0, r.y - r.half); ctx.lineTo(x0, r.y - r.half); ctx.moveTo(0, r.y + r.half); ctx.lineTo(x0, r.y + r.half); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#ff4a62'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        for (let k = 0; k < 3; k++) { const cx = x0 - 60 - k * 26 - ((time * 90) % 26); ctx.moveTo(cx + 9, r.y - 11); ctx.lineTo(cx - 3, r.y); ctx.lineTo(cx + 9, r.y + 11); }
+        ctx.stroke();
+        continue;
+      }
+      const by = b.y + clamp(r.y - b.y, -BOSS_R * 0.55, BOSS_R * 0.6);
+      const pts = quadPts(x0, by, x0 - 70, r.y, Math.min(x0 - 120, r.tip + 30), r.y, 5);
+      for (let x = pts[pts.length - 1][0] - 34; x > r.tip + 30; x -= 34) pts.push([x, r.y + Math.sin(x * 0.05 + time * 8) * 3]);
+      pts.push([r.tip + 30, r.y]);
+      thickVine(pts, 30);
+      // pointe
+      ctx.fillStyle = BR_DARK; ctx.strokeStyle = '#24162a'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(r.tip + 34, r.y - 15); ctx.lineTo(r.tip - 6, r.y); ctx.lineTo(r.tip + 34, r.y + 15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    for (const s of b.seeds) drawSeed(s.x, s.y, s.r);
+  }
+
+  // Jauge du boss dans le HUD (pixels d'écran) : un rond par bulbe
+  function drawBossHud(R, T, label) {
+    const b = boss;
+    ctx.textAlign = 'right';
+    ctx.font = '800 14px Nunito, system-ui, sans-serif';
+    label('Cœur de ronce', R, T, '#ff9db5');
+    for (let i = 0; i < 5; i++) {
+      const q = b.bulbs[i], cx = R - 10 - (4 - i) * 24, cy = T + 30, r = q.core ? 9 : 7;
+      ctx.lineWidth = 2; ctx.strokeStyle = '#241a2e';
+      if (!q.alive) { ctx.fillStyle = '#ffc6dd'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(cx, cy, r * 0.4, 0, Math.PI * 2); ctx.fill(); continue; }
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      const locked = q.core && b.stage < 3;
+      ctx.fillStyle = locked ? '#7a6a82' : '#b6ff3b';
+      ctx.beginPath(); ctx.arc(cx, cy, r * Math.max(0.15, q.hp / q.max), 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    }
   }
 
   // Gloups : la proie est avalée
@@ -854,15 +1479,16 @@
     burst(px, player.y, '#5fd39a', 22, 'leaf');
     burst(px, player.y, '#ffffff', 8, 'dot');
     if (score > best) { best = score; try { localStorage.setItem('gloub-best', String(best)); } catch (e) { /* ignoré */ } }
+    retryBoss = phase === 'boss';
     ovTitle.textContent = 'Gloub est tombé…';
     ovTitle.classList.add('small');
-    document.getElementById('ov-sub').textContent = 'mais la forêt se souvient de toi';
+    document.getElementById('ov-sub').textContent = retryBoss ? 'le Cœur de ronce bat toujours' : 'mais la forêt se souvient de toi';
     ovText.innerHTML = `<div class="stats">
       <span>Score</span><b>${score}</b>
-      <span>Monde guéri</span><b>${Math.round(health * 100)} %</b>
+      ${retryBoss ? '<span>Bulbes crevés</span><b>' + boss.bulbs.filter(q => !q.alive).length + ' / 5</b>' : '<span>Monde guéri</span><b>' + Math.round(health * 100) + ' %</b>'}
       <span class="best">Record</span><b class="best">${best}</b>
     </div>`;
-    ovCta.textContent = 'Tape pour réessayer';
+    ovCta.textContent = retryBoss ? 'Tape pour retenter le Cœur' : 'Tape pour réessayer';
     overlay.style.display = 'flex';
   }
 
@@ -1013,7 +1639,7 @@
   }
   function drawAnnounce() {
     if (!announce) return;
-    const a = announce, u = a.t / ANNOUNCE_TIME;
+    const a = announce, u = a.t / (a.dur || ANNOUNCE_TIME);
     if (u >= 1) { announce = null; return; }
     const pop = u < 0.15 ? u / 0.15 : 1, out = u > 0.75 ? 1 - (u - 0.75) / 0.25 : 1;
     const scale = a.up ? 0.6 + 0.4 * (1 - Math.pow(1 - pop, 3)) * (1 + 0.08 * Math.sin(pop * Math.PI)) : 1;
@@ -1075,6 +1701,7 @@
         if (c.alive && c.type !== 'root' && c.x > prev - 20 && c.x <= m.x && Math.abs(c.y - m.y) < m.half + c.r * 0.5) damageCell(c, { kind: 'sap', dmg: 99, x: c.x, y: c.y });
       }
       for (const b of bugs) if (b.alive && b.x > prev - 20 && b.x <= m.x && Math.abs(b.y - m.y) < m.half) killBug(b);
+      megaHitsBoss(m, prev);
       if (Math.random() < 0.8) particles.push({ x: m.x - rand(0, 30), y: m.y + rand(-m.half, m.half), vx: rand(-80, 40), vy: rand(-40, 40), life: 0.5, max: 0.5, color: pick(['#e8ff8a', '#ffffff', '#ffc6dd']), r: rand(2, 3.5), rot: rand(0, 6), vr: rand(-6, 6), shape: pick(['dot', 'leaf']), nograv: true });
     }
     megas = megas.filter(m => m.x < W + 200);
@@ -1111,7 +1738,7 @@
     if (t.type === 'bramble' || t.type === 'berrycell') {
       if (s.kind === 'sap') {
         // Purifiée : une fleur saine prend sa place
-        score += 25; health = Math.min(1, health + 0.035);
+        score += 25; health = Math.min(1, health + HEAL_SAP);
         flowers.push({ x: cx, y: cy, t: 0, seed: Math.random(), color: pick(['#ff8fb8', '#ffd166', '#ffffff', '#c9a0ff']) });
         for (let i = 0; i < 2; i++) {
           const life = rand(3, 5);
@@ -1121,7 +1748,7 @@
         burst(cx, cy, '#ffc6dd', 6, 'dot');
       } else {
         // Simplement arrachée
-        score += 10; health = Math.min(1, health + 0.004);
+        score += 10; health = Math.min(1, health + HEAL_SALIVA);
         burst(cx, cy, '#6e4f7a', 10, 'leaf');
       }
     } else if (t.type === 'stone') {
@@ -1139,7 +1766,7 @@
   function update(dt) {
     time += dt;
     const diff = Math.min(distance / 15000, 1);
-    const speed = SPEED_BASE + diff * 140;
+    const speed = (SPEED_BASE + diff * 140) * scroll;   // le défilement ralentit devant le Cœur de ronce
     const px = W * PLAYER_X_RATIO;
 
     for (const m of motes) {
@@ -1240,15 +1867,19 @@
         if (player.charge >= BEAM_CHARGE) { fireBeam(px); player.charge = 0; }
       } else player.charge = 0;
 
-      columnTimer -= dt;
-      if (columnTimer <= 0) { spawnWall(); columnTimer = rand(1.7, 2.4) - diff * 0.4; }
+      if (phase === 'travel') {
+        columnTimer -= dt;
+        if (columnTimer <= 0) { spawnWall(); columnTimer = rand(1.7, 2.4) - diff * 0.4; }
+      }
+      updateStage(dt, px);
     }
 
     const ws = state === 'play' ? speed : 0;
 
-    for (const c of cells) c.x -= ws * dt;
+    for (const c of cells) if (c.anchor === undefined) c.x -= ws * dt;   // le rideau du Cœur reste accroché à lui
     for (const p of pickups) {
       p.x -= ws * dt; p.t += dt;
+      if (p.vx) p.x += p.vx * dt;   // mûres lâchées par le Cœur : elles filent vers Gloub
       if (p.eating !== undefined) {   // aspiré vers la bouche de Gloub, en tournoyant
         p.eating += dt / 0.38;
         const e = Math.min(1, p.eating), k = e * e * (3 - 2 * e);
@@ -1305,6 +1936,7 @@
           if (--s.hitsLeft <= 0) { s.life = 0; break; }
         }
       }
+      if (s.life > 0 && boss && bossHit(s)) s.life = 0;
     }
 
     if (state === 'play') {
@@ -2116,12 +2748,12 @@
   const BUG_FREED = {
     wing: 'rgba(225,255,240,0.6)', wingInk: 'rgba(36,26,46,0.6)', glow: '#bff5e4', glowBlur: 10,
     belly: ['#ffffff', '#9fe3c4', '#3f8a72'], veins: 'rgba(30,80,64,0.55)', thorax: '#3e6f60', head: '#4d8573',
-    needle: '#2f5a4c', drip: '#fff1a8', eye: '#d8ff6a', eyeLight: '#ffffff', angry: false, glowRGB: '191,245,228', eyeRGB: '216,255,106',
+    needle: '#2f5a4c', drip: '#fff1a8', eye: '#d8ff6a', eyeLight: '#ffffff', angry: false, straight: true, glowRGB: '191,245,228', eyeRGB: '216,255,106',
   };
   function drawBug(b, pal = BUG_SOOT) {
     ctx.save();
     ctx.translate(b.x, b.y);
-    ctx.rotate(Math.sin(b.t * 7 + b.phase) * 0.12);
+    if (!pal.straight) ctx.rotate(Math.sin(b.t * 7 + b.phase) * 0.12);   // l'allié vole bien droit pour viser
     ctx.scale(pal.angry ? 2.3 : -2.3, 2.3);   // l'allié regarde vers la droite, du côté de Gloub
     const buzz = Math.sin(time * 90 + b.phase);
     // Ailes déchirées qui vrombissent
@@ -2163,11 +2795,18 @@
     ctx.fillStyle = pal.head;
     ctx.beginPath(); ctx.arc(-3.3, -1, 2.1, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     // Longue aiguille qui goutte de poison
-    ctx.strokeStyle = pal.needle; ctx.lineWidth = 0.9;
-    ctx.beginPath(); ctx.moveTo(-5, -0.5); ctx.lineTo(-13, 1.4); ctx.stroke();
-    ctx.fillStyle = pal.drip;
-    const drip = (time * 1.5 + b.phase) % 1;
-    ctx.beginPath(); ctx.ellipse(-12.6, 2.2 + drip * 3, 0.6, 0.6 + drip * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    if (pal.straight) {   // allié : aiguille bien droite, comme un canon, avec une perle de nectar au bout
+      ctx.strokeStyle = pal.needle; ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.moveTo(-5, -0.5); ctx.lineTo(-14, -0.5); ctx.stroke();
+      ctx.fillStyle = pal.drip;
+      ctx.beginPath(); ctx.arc(-14.2, -0.5, 0.75, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.strokeStyle = pal.needle; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.moveTo(-5, -0.5); ctx.lineTo(-13, 1.4); ctx.stroke();
+      ctx.fillStyle = pal.drip;
+      const drip = (time * 1.5 + b.phase) % 1;
+      ctx.beginPath(); ctx.ellipse(-12.6, 2.2 + drip * 3, 0.6, 0.6 + drip * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    }
     // Antennes plumeuses sombres
     ctx.strokeStyle = MOTH_INK; ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.moveTo(-3.8, -2.8); ctx.quadraticCurveTo(-5.5, -5.5, -7.5, -5.6); ctx.moveTo(-3, -3); ctx.quadraticCurveTo(-4, -6.2, -5.8, -6.8); ctx.stroke();
@@ -2891,9 +3530,13 @@
     label('Score ' + score, L, T, '#fff');
     ctx.font = '800 13px Nunito, system-ui, sans-serif';
     label('Ventre', L, T + 28, '#fff');
-    ctx.textAlign = 'right';
-    ctx.font = '800 14px Nunito, system-ui, sans-serif';
-    label('Monde guéri ' + Math.round(health * 100) + ' %', R, T, '#fff');
+    const bossHud = phase === 'boss' && boss && boss.dying < 0;
+    if (bossHud) drawBossHud(R, T, label);
+    else {
+      ctx.textAlign = 'right';
+      ctx.font = '800 14px Nunito, system-ui, sans-serif';
+      label('Monde guéri ' + Math.round(health * 100) + ' %', R, T, '#fff');
+    }
 
     // Jauge du ventre
     const w = player.belly / BELLY_MAX;
@@ -2932,9 +3575,11 @@
     }
 
     // Jauge de guérison
-    const hx = R - 120, hy = T + 23;
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(hx, hy, 120, 8);
-    ctx.fillStyle = '#7be07b'; ctx.fillRect(hx, hy, 120 * health, 8);
+    if (!bossHud) {
+      const hx = R - 120, hy = T + 23;
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(hx, hy, 120, 8);
+      ctx.fillStyle = '#7be07b'; ctx.fillRect(hx, hy, 120 * health, 8);
+    }
     ctx.restore();
   }
 
@@ -2955,16 +3600,18 @@
     drawMotes();
     drawWinds();
     for (const f of flowers) drawFlower(f);
+    drawSpirits();   // aigrettes de pissenlit des ronces purifiées : elles s'envolent derrière les colonnes
+    drawBoss();
     drawWalls();
     for (const p of pickups) drawPickup(p);
     drawTraps();
     drawBugs();
+    drawBossAttacks();
     drawSpits();
     drawBeams();
     for (const a of allies) drawAlly(a);
     if (player.alive && !(player.inv > 0 && Math.floor(time * 14) % 2)) drawGloub();
     drawParticles();
-    drawSpirits();
     drawGround();
     drawForeground();
     drawTexts();
@@ -2989,6 +3636,7 @@
   requestAnimationFrame(t => { lastTime = t; loop(t); });
 
   // Lecture seule, pour les tests
+  window.__boss = () => boss && { x: Math.round(boss.x), stage: boss.stage, enter: +boss.enter.toFixed(2), dying: +boss.dying.toFixed(2), bulbs: boss.bulbs.map(q => q.alive ? Math.round(q.hp) : 0), roots: boss.roots.length, seeds: boss.seeds.length, phase, health: +health.toFixed(2) };
   window.__gloub = () => ({ state, score, health, belly: player.belly, y: player.y, vy: player.vy, H, cells: cells.length, flowers: flowers.length });
 })();
 </script>

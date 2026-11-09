@@ -79,7 +79,8 @@ Le monde malade reste beau : c'est une aquarelle mélancolique, pas un décor «
 | Goutte au bout de l'aiguille | poison vert | nectar doré |
 | Ailes | grises et ternes | blanc d'eau translucide |
 | Autour de lui | gouttes toxiques | petit halo vert d'eau et traînée de pollen |
-| Tir | aucun | rafales de dards de nectar dorés cernés d'encre, avec un éclair au bout de l'aiguille et un léger recul |
+| Aiguille | penchée, une goutte de poison y pend | bien droite comme un canon, avec une perle de nectar au bout |
+| Tir | aucun | rafales de dards de nectar dorés cernés d'encre, en ligne droite depuis le bout de l'aiguille, avec un éclair et un léger recul |
 
 ## Interface
 

@@ -8,5 +8,6 @@
 | [Bestiaire](04-bestiaire.md) | Les alliés, les ennemis, les obstacles ; ce qui est désactivé ; les pistes à venir. |
 | [Technique](05-technique.md) | L'architecture du code, l'application installable (PWA), les tests, les icônes. |
 | [Journal des décisions](06-journal-des-decisions.md) | Les choix de conception dans l'ordre, et les questions ouvertes. |
+| [Étapes et boss](07-etapes-et-boss.md) | Proposition : trois paysages de plus en plus pollués à guérir, puis le boss Cœur de ronce. |
 
 Les valeurs chiffrées viennent du code (`index.html`) : si on change un réglage, mettre à jour le document correspondant.

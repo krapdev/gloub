@@ -77,22 +77,63 @@ Le tir est **automatique et toujours droit devant**, avec un coup toutes les 0,1
 ## Moustiques libérés
 
 - Chaque moustique abattu remplit la jauge « Libérés » (8 cases, sous le ventre).
-- Jauge pleine : un **moustique libéré** rejoint Gloub, annoncé par un bandeau. Guéri de la corruption, il vole en léger différé au-dessus ou en dessous de Gloub, sert de **petite mitraillette** : par l'aiguille, il tire des rafales de 6 dards de nectar (un toutes les 0,075 s, puis une pause de 0,45 s), rapides et un peu dispersés, d'un point de dégât chacun. Il abat aussi les moustiques qu'il touche.
+- Jauge pleine : un **moustique libéré** rejoint Gloub, annoncé par un bandeau. Guéri de la corruption, il vole en léger différé au-dessus ou en dessous de Gloub, sert de **petite mitraillette** : son aiguille est bien droite et, par son bout, il tire des rafales de 6 dards de nectar (un toutes les 0,075 s, puis une pause de 0,45 s), rapides et en ligne droite. Pendant une rafale, il se stabilise pour que les dards restent alignés. Chaque dard fait un point de dégât. Il abat aussi les moustiques qu'il touche.
 - Deux alliés au plus en même temps. Avec deux alliés, une jauge pleine rapporte 50 points.
 - À chaque choc, un allié prend peur et s'envole.
+
+## Le voyage
+
+Une partie a maintenant un but : guérir la forêt, puis vaincre la source de sa maladie.
+
+1. **La forêt étouffée** : annoncée au départ (« Guéris-la à 100 % »). Elle est guérie quand la jauge « Monde guéri » atteint 100 %, soit environ 2 à 3 minutes de jeu.
+2. **Le calme** : plus aucune colonne n'apparaît. Un bandeau annonce « La forêt respire ! » (+500), le paysage refleurit et des aigrettes s'envolent pendant 3,5 s.
+3. **Le Cœur de ronce** : le boss arrive par la droite et le défilement ralentit presque jusqu'à l'arrêt (voir ci-dessous).
+4. **La victoire** : écran « La vallée refleurit ! », avec le score, le temps, les moustiques libérés et le record. On peut repartir pour un nouveau voyage.
+
+**Si Gloub tombe** :
+
+- **dans la forêt**, la partie recommence depuis le début ;
+- **pendant le combat**, on reprend au début du combat (« Tape pour retenter le Cœur »), avec le score de l'arrivée du boss et au moins 2 niveaux de tir (Sève ×2).
+
+## Le combat contre le Cœur de ronce
+
+- **But** : crever ses **5 bulbes** lumineux. Le HUD affiche un rond par bulbe ; un bulbe crevé devient une petite fleur rose.
+- **Dégâts sur un bulbe** :
+  - une onde de sève retire sa pleine valeur (4) ;
+  - la salive retire 4 fois moins ;
+  - une méga-onde retire 45.
+- **Points de vie** : 180 pour chacun des 4 bulbes autour, 300 pour le bulbe central.
+- **Le reste du cœur** absorbe les ondes : il faut viser les bulbes.
+
+| Phase | Déclenchement | Attaques | Aide |
+| --- | --- | --- | --- |
+| 1. La carapace | Arrivée du boss | Un rideau de ronces (3 cellules d'épaisseur) protège le cœur ; une racine fouette une bande de l'écran toutes les 2,4 à 3,2 s. | Le rideau contient des bulbes à mûres. |
+| 2. La colère | 2 bulbes crevés | Racines, graines toxiques (2 à la fois), nuées de 4 moustiques, toutes les 1,9 à 2,6 s. | Une mûre lâchée toutes les 9 s. |
+| 3. Le cœur à nu | 4 bulbes crevés | Le bouton central s'ouvre ; racines et graines (3 à la fois) en alternance, toutes les 1,5 à 2 s. Le cœur bat plus vite. | Une mûre toutes les 5 s, de quoi atteindre la méga-onde. |
+
+**Les attaques sont toujours annoncées** :
+
+- **Racine** : une bande rouge clignote 1 s, avec des chevrons qui pointent vers Gloub. Puis la racine jaillit en 0,3 s, reste 0,35 s et se retire. Elle est incassable et arrête les ondes.
+- **Graines** : le cœur se gonfle d'une lueur verte pendant 0,7 s, puis les crache en cloche vers Gloub. Elles sont visées autour de lui, à environ 105 unités d'écart, et arrivent l'une après l'autre. Une onde suffit à en détruire une.
+- **Nuée** : les mêmes chevrons rouges qu'en forêt.
+
+**La victoire** : le cœur se fige et tremble 1,8 s. Puis il fleurit : un flash, une grande fleur s'ouvre sur la cuve, les lianes se dessèchent, une pluie de pétales tombe et la vallée revient à 100 % guérie (+2000). Pendant la floraison, plus rien ne peut blesser Gloub.
 
 ## Score et guérison
 
 | Action | Points | Guérison du monde |
 | --- | --- | --- |
-| Ronce purifiée (sève) | 25 | +3,5 % |
-| Ronce arrachée (salive) | 10 | +0,4 % |
+| Ronce purifiée (sève) | 25 | +0,3 % |
+| Ronce arrachée (salive) | 10 | +0,04 % |
 | Rocher cassé | 15 | — |
 | Bulbe crevé | 5 | — |
 | Mûre gobée | 5 | — |
 | Moustique abattu | 10 | — |
+| Paysage guéri | 500 | — |
+| Bulbe du Cœur crevé | 300 | +4 % |
+| Cœur de ronce vaincu | 2000 | jusqu'à 100 % |
 
-Le record est gardé dans le navigateur.
+Les deux taux de guérison sont réglés en haut du module des paysages (`HEAL_SAP`, `HEAL_SALIVA`). Le record est gardé dans le navigateur.
 
 ## Les murs
 

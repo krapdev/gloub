@@ -26,9 +26,21 @@ Un esprit de la forêt chauve-souris. Il vole en battant des ailes, émet des on
 ### Moustique libéré (allié)
 
 - **D'où il vient** : tous les 8 moustiques abattus, l'un d'eux est guéri de la corruption végétale et rejoint Gloub.
-- **Effet** : une **petite mitraillette** : il tire par l'aiguille des rafales de dards de nectar dorés, et abat les moustiques qu'il touche. Deux au plus ; un choc en fait fuir un.
+- **Effet** : une **petite mitraillette** : son aiguille, bien droite, tire des rafales de dards de nectar dorés en ligne droite, et abat les moustiques qu'il touche. Deux au plus ; un choc en fait fuir un.
 - **Design** : le même dessin que le moustique de suie, retourné vers Gloub ; seules les couleurs changent (vert d'eau lumineux, yeux vert sève, goutte de nectar). Détails dans la [direction artistique](02-direction-artistique.md).
 - **Pourquoi** : c'est le même insecte, mais purifié. La règle reste cohérente : les insectes corrompus attaquent, et Gloub peut les guérir.
+
+### Le Cœur de ronce (boss)
+
+- **Ce que c'est** : la source de la maladie. Une énorme ronce en forme de cœur, enroulée sur une cuve de déchets éventrée, qui s'en nourrit et bat comme un cœur (boum-boum).
+- **Comment on le bat** : en crevant ses 5 bulbes lumineux. Le bulbe central reste enfermé dans un bouton de pétales sombres jusqu'à ce que les 4 autres soient crevés. Détails du combat dans le [gameplay](03-gameplay.md).
+- **Attaques** : une racine qui fouette une bande de l'écran, des graines toxiques crachées en cloche, des nuées de moustiques. Chacune est annoncée avant de frapper.
+- **Design** :
+  - le cœur est fait des mêmes touffes de ronces que les colonnes, peintes en passes de gouache, avec des épines tout autour et des veines toxiques vertes qui pulsent à chaque battement ;
+  - quatre lianes épineuses l'ancrent au ciel et au sol ;
+  - la cuve est rouillée, fendue d'une fissure lumineuse, avec des coulures de boue toxique et un panneau de danger ;
+  - chaque bulbe a un anneau de vie ; crevé, il devient une petite fleur rose.
+- **À la victoire** : il fleurit en une grande fleur rose au cœur doré, ses lianes se dessèchent et la mousse recouvre la cuve.
 
 ### Les obstacles
 

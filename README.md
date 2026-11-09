@@ -51,6 +51,7 @@ Quand il y a du réseau, l'application charge toujours la dernière version de `
 - Les **moustiques de suie** arrivent en nuées (annoncées par des chevrons rouges). Tous les 8 moustiques abattus, l'un d'eux est **libéré** de la corruption et aide Gloub à tirer.
 - Chaque mûre fait monter les ondes d'un niveau, chaque choc en fait perdre un. La puissance ne baisse pas avec le temps, sauf la méga-onde qui dure 8 secondes. Chaque évolution est annoncée à l'écran. Le ventre vide, un choc fait chuter Gloub.
 - Purifier les ronces fait refleurir le monde : le ciel, les arbres et le décor se transforment.
+- **But** : guérir la forêt à 100 % (« Monde guéri »), puis affronter le **Cœur de ronce**, la source de la maladie, et crever ses 5 bulbes. Si Gloub tombe pendant le combat, on reprend au début du combat.
 
 ## Fichiers
 
