@@ -10,7 +10,7 @@
 
 | Section | Contenu |
 | --- | --- |
-| Réglages | Gravité, contrôle, vitesse, tailles, ventre. |
+| Réglages | Gravité, contrôle, vitesse, tailles, puissance (`player.belly`, 25 par mûre). |
 | Palettes | `SICK` et `HEAL`, mélangées selon `health` (0 à 1). |
 | Décor | Génération des plans en parallaxe, des collines, des objets au sol, des nuages. |
 | Murs | `spawnWall()`, cellules (`makeCell`), racines, pièges. |

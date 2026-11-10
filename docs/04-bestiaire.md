@@ -11,7 +11,7 @@ Un esprit de la forêt chauve-souris. Il vole en battant des ailes, émet des on
 ### Mûre (alliée : bonus de puissance)
 
 - **D'où elle vient** : des **bulbes** lumineux nichés dans les ronces. Crever un bulbe libère une mûre.
-- **Effet** : remplit un quart du ventre et fait monter le tir d'un niveau.
+- **Effet** : éveille Gloub d'un niveau (marqué, nervuré, couronné, puis forme d'esprit), et renforce son tir.
 - **Comportement** : quand Gloub passe près d'elle, elle est aspirée vers sa bouche en tournoyant, et il la gobe.
 - **Pourquoi une mûre** : une chauve-souris mange des fruits et des insectes. Les fruits sont donc du côté des bonus. La mûre colle aux ronces : c'est le fruit qu'elles portent, débarrassé de leur maladie.
 

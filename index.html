@@ -204,14 +204,14 @@
               <circle cx="11" cy="22" r="3.4"/><circle cx="17" cy="22" r="3.4"/>
             </g>
             <g fill="#e9d2ff"><circle cx="12" cy="11" r="1"/><circle cx="18" cy="11" r="1"/><circle cx="15" cy="16" r="1"/><circle cx="21" cy="16" r="1"/><circle cx="18" cy="21" r="1"/></g>
-          </svg></span><span>Crève les <b>bulbes</b> lumineux des ronces : ils libèrent des <b>mûres</b>, et chaque mûre fait monter tes ondes d'un niveau. La <b>méga-onde</b> ne dure que quelques secondes.</span></li>
+          </svg></span><span>Crève les <b>bulbes</b> lumineux des ronces : ils libèrent des <b>mûres</b>. Chaque mûre <b>éveille</b> un peu plus Gloub et renforce ses ondes, jusqu'à sa <b>forme d'esprit</b> (méga-onde, quelques secondes).</span></li>
           <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
             <path d="M3 14 L11 15" stroke="#241a2e" stroke-width="1.8" stroke-linecap="round"/>
             <ellipse cx="20" cy="16" rx="7" ry="4.2" fill="#8fd62a" stroke="#241a2e" stroke-width="2" transform="rotate(18 20 16)"/>
             <circle cx="12.5" cy="14" r="3.6" fill="#2b2430" stroke="#241a2e" stroke-width="1.6"/>
             <circle cx="11.6" cy="13.4" r="1.3" fill="#ff2a40"/>
             <path d="M15 11 Q17 4 22 6 M17 11 Q21 6 26 9" stroke="#241a2e" stroke-width="1.4" fill="rgba(200,210,190,0.6)"/>
-          </svg></span><span>Gare aux <b>moustiques</b> et aux <b>racines</b> : un choc te fait perdre un niveau, et le ventre vide, c'est la chute. Abats 8 moustiques pour en <b>libérer</b> un, qui t'aidera.</span></li>
+          </svg></span><span>Gare aux <b>moustiques</b> et aux <b>racines</b> : un choc lui fait perdre un niveau ; sans aucune force, c'est la chute. Abats 8 moustiques pour en <b>libérer</b> un, qui t'aidera.</span></li>
         </ul>
       </div>
       <div id="ov-cta">Tape pour t'envoler</div>
@@ -335,15 +335,15 @@
   // ---------- Palettes : monde malade → monde guéri ----------
   // Palette aquarelle : même malade, le monde reste beau et mélancolique
   const SICK = {
-    skyTop: [86, 74, 104], skyBot: [206, 166, 128],
-    far: [120, 104, 130], mid: [98, 100, 90], near: [74, 86, 68], ivy: [114, 82, 124],
+    skyTop: [74, 62, 92], skyMid: [140, 104, 118], skyBot: [206, 162, 120],
+    far: [120, 104, 130], mid: [98, 100, 90], near: [74, 86, 68], ivy: [96, 62, 106], bush: [84, 54, 96],
     ground1: [118, 100, 100], ground2: [92, 80, 84],
     cloud: [214, 192, 196], cloudShade: [146, 124, 146],
-    treeLeaf: [112, 80, 124], bloom: 0,
+    treeLeaf: [96, 62, 106], bloom: 0,
   };
   const HEAL = {
-    skyTop: [66, 138, 204], skyBot: [212, 236, 228],
-    far: [146, 188, 204], mid: [92, 152, 108], near: [66, 136, 76], ivy: [78, 166, 94],
+    skyTop: [58, 128, 200], skyMid: [128, 190, 228], skyBot: [226, 242, 226],
+    far: [146, 188, 204], mid: [92, 152, 108], near: [66, 136, 76], ivy: [78, 166, 94], bush: [66, 136, 76],
     ground1: [124, 184, 102], ground2: [92, 156, 82],
     cloud: [255, 255, 252], cloudShade: [172, 198, 226],
     treeLeaf: [86, 162, 90], bloom: 1,
@@ -353,7 +353,9 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const mix = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
   const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-  const col = k => mix(SICK[k], HEAL[k], health);
+  // Chaque partie du décor guérit à son étape (voir LOOK) : le ciel, puis le lointain, la ville, le premier plan
+  const LOOK_OF = { skyTop: 'sky', skyMid: 'sky', skyBot: 'sky', cloud: 'sky', cloudShade: 'sky', far: 'far', mid: 'mid', ground1: 'mid', ground2: 'mid', near: 'near', ivy: 'near', bush: 'near', treeLeaf: 'near' };
+  const col = k => mix(SICK[k], HEAL[k], LOOK[LOOK_OF[k] || 'mid']);
   const pick = arr => arr[(Math.random() * arr.length) | 0];
 
   let best = 0;
@@ -362,6 +364,10 @@
   // ---------- État ----------
   let state = 'menu';            // menu | play | over
   let score = 0, distance = 0, health = 0, time = 0, lastTime = 0;
+  // Guérison visible, par étapes : le monde change par paliers bien lisibles (25, 50, 75, 100 %)
+  // plutôt que de glisser imperceptiblement. vis suit la guérison réelle arrondie au palier inférieur.
+  const LOOK = { vis: 0, smog: 1, sky: 0, far: 0, mid: 0, near: 0 };
+  let lookStep = 0, bloomWave = null;
   let traps = [], beams = [], megas = [], flashT = 0;
   // Moustiques libérés : chaque moustique abattu remplit une jauge ; pleine, un moustique purifié rejoint Gloub et l'aide
   const KILLS_FOR_ALLY = 8, MAX_ALLIES = 2;
@@ -379,6 +385,7 @@
   // puis les deux images sont fondues selon la guérison.
   const PERIOD = 1800;
   const SHADOW = [24, 16, 30], SUNLIGHT = [255, 246, 222];
+  const BRAMBLE_RGB = [92, 60, 102];   // la ronce des colonnes, en couleurs de décor
 
   function rng(seed) {   // hasard reproductible : les deux versions ont exactement la même forme
     let a = (seed * 4294967296) >>> 0;
@@ -403,6 +410,78 @@
     g.fillStyle = rgb(F(mix(base, SUNLIGHT, 0.4)), 0.65);
     blobsOn(g, list.map(([x, y, r]) => [x + r * 0.32, y - r * 0.38, r * 0.36]));
   }
+  // ---------- Végétation malade : le même langage que les colonnes ----------
+  // Monde malade : touffes de ronces violettes, tiges épineuses qui s'en échappent, bulbes toxiques vert acide
+  // (les mêmes que dans les colonnes). Monde guéri : feuillage vert et fleurs, sur la même silhouette.
+  // Ces détails ne sont peints que dans la version malade, avec leur propre hasard (rng), pour ne pas
+  // changer la forme commune aux deux versions.
+  const TOXIC_RGB = [182, 255, 59], TOXIC_DEEP = [70, 110, 24], THORN_RGB = [226, 201, 230];
+  // Tiges épineuses : [x, y, angle de départ, longueur]. droop > 0 : elles retombent ; curl : pointe enroulée.
+  function paintThornVines(g, R, starts, F, sc, droop = 0.12) {
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const [x, y, a0, len] of starts) {
+      const pts = [];
+      let px = x, py = y, a = a0;
+      const n = 7;
+      for (let i = 0; i <= n; i++) {
+        pts.push([px, py]);
+        a += (R() - 0.5) * 0.45 + droop * (Math.cos(a) > 0 ? 1 : -1) * (Math.sin(a) < 1 ? 1 : 0);
+        px += Math.cos(a) * len / n; py += Math.sin(a) * len / n;
+      }
+      const path = () => { g.beginPath(); pts.forEach(([u, v], i) => (i ? g.lineTo(u, v) : g.moveTo(u, v))); };
+      g.strokeStyle = rgb(F(mix(BRAMBLE_RGB, SHADOW, 0.45))); g.lineWidth = sc * 2.6; path(); g.stroke();
+      g.strokeStyle = rgb(F(mix(BRAMBLE_RGB, SUNLIGHT, 0.25)), 0.8); g.lineWidth = sc * 0.9; path(); g.stroke();
+      // pointe enroulée
+      const [ex, ey] = pts[n], [qx, qy] = pts[n - 1], ea = Math.atan2(ey - qy, ex - qx);
+      g.strokeStyle = rgb(F(mix(BRAMBLE_RGB, SHADOW, 0.45))); g.lineWidth = sc * 1.4;
+      g.beginPath(); g.arc(ex + Math.cos(ea + 1.6) * sc * 1.8, ey + Math.sin(ea + 1.6) * sc * 1.8, sc * 1.8, ea - 1.6, ea + 1.6); g.stroke();
+      // épines, alternées de part et d'autre
+      g.fillStyle = rgb(F(mix(THORN_RGB, BRAMBLE_RGB, 0.35)), 0.85);
+      g.beginPath();
+      for (let i = 1; i < n; i += 2) {
+        const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], d = Math.hypot(x1 - x0, y1 - y0) || 1;
+        const tx = (x1 - x0) / d, ty = (y1 - y0) / d, sd = (i >> 1) % 2 ? 1 : -1, nx = -ty * sd, ny = tx * sd, L = sc * 2.8;
+        g.moveTo(x0 - tx * sc, y0 - ty * sc); g.lineTo(x0 + nx * L + tx * L * 0.4, y0 + ny * L + ty * L * 0.4); g.lineTo(x0 + tx * sc, y0 + ty * sc); g.closePath();
+      }
+      g.fill();
+    }
+  }
+  // Bulbes toxiques nichés dans les ronces (comme ceux des colonnes) : lueur, verre vert acide, reflet
+  function paintToxicBulbs(g, list, F) {
+    for (const [x, y, r] of list) {
+      const halo = g.createRadialGradient(x, y, r * 0.4, x, y, r * 2.8);
+      halo.addColorStop(0, rgb(F(TOXIC_RGB), 0.38)); halo.addColorStop(1, rgb(F(TOXIC_RGB), 0));
+      g.fillStyle = halo; g.beginPath(); g.arc(x, y, r * 2.8, 0, Math.PI * 2); g.fill();
+      const b = g.createRadialGradient(x + r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+      b.addColorStop(0, rgb(F(mix(TOXIC_RGB, SUNLIGHT, 0.6)))); b.addColorStop(0.55, rgb(F(TOXIC_RGB))); b.addColorStop(1, rgb(F(TOXIC_DEEP)));
+      g.fillStyle = b; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = rgb(F(mix(BRAMBLE_RGB, SHADOW, 0.6))); g.lineWidth = Math.max(0.8, r * 0.2); g.stroke();
+      g.fillStyle = 'rgba(255,255,255,0.7)';
+      g.beginPath(); g.ellipse(x + r * 0.3, y - r * 0.38, r * 0.24, r * 0.15, -0.5, 0, Math.PI * 2); g.fill();
+    }
+  }
+  // Coulures toxiques sous un bulbe ou une fenêtre
+  function paintToxicDrips(g, list, F) {
+    for (const [x, y, len, w] of list) {   // une traînée qui s'amincit, plus claire en haut
+      const gr = g.createLinearGradient(0, y, 0, y + len);
+      gr.addColorStop(0, rgb(F(TOXIC_RGB), 0.7)); gr.addColorStop(1, rgb(F(TOXIC_DEEP), 0.15));
+      g.fillStyle = gr;
+      g.beginPath(); g.moveTo(x - w, y); g.quadraticCurveTo(x - w * 0.5, y + len * 0.6, x, y + len); g.quadraticCurveTo(x + w * 0.5, y + len * 0.6, x + w, y); g.closePath(); g.fill();
+    }
+  }
+  // Petites épines claires sur le pourtour des touffes, comme sur les colonnes
+  function paintClumpThorns(g, R, list, F, sc) {
+    g.fillStyle = rgb(F(THORN_RGB), 0.85);
+    g.beginPath();
+    for (const [x, y, r] of list) {
+      if (R() < 0.45) continue;
+      const a = -Math.PI * (0.15 + R() * 0.9), bx = x + Math.cos(a) * r * 0.92, by = y + Math.sin(a) * r * 0.92, L = sc * 3.2;
+      const tx = -Math.sin(a), ty = Math.cos(a);
+      g.moveTo(bx - tx * sc, by - ty * sc); g.lineTo(bx + Math.cos(a) * L, by + Math.sin(a) * L); g.lineTo(bx + tx * sc, by + ty * sc); g.closePath();
+    }
+    g.fill();
+  }
+
   function makeSprite(w, h, paint) {
     const pad = 30, cv = document.createElement('canvas');
     cv.width = Math.ceil(w + pad * 2);
@@ -455,6 +534,25 @@
     }
     g.fillStyle = rgb(F(mix(leaf, SUNLIGHT, 0.55)), 0.7);
     blobsOn(g, dots);
+    if (bloom === 0) {   // monde malade : la ronce a pris l'arbre
+      const S = rng(seed * 0.77 + 0.31), sc = Math.max(0.6, size / 70);
+      // une tige épineuse s'enroule autour du tronc
+      g.strokeStyle = rgb(F(mix(BRAMBLE_RGB, SHADOW, 0.4))); g.lineWidth = sc * 2.4; g.lineCap = 'round';
+      g.beginPath();
+      for (let i = 0; i <= 12; i++) { const t = i / 12, yy = y - size * 0.8 * t, xx = x + Math.sin(t * Math.PI * 3.2) * size * 0.09; i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }
+      g.stroke();
+      paintClumpThorns(g, S, clusters, F, sc);
+      // tiges qui pendent du bas de la canopée
+      const low = clusters.filter(c => c[1] > y - size * 1.0);
+      const hang = [];
+      for (let i = 0; i < 5; i++) { const c = low.length ? low[(S() * low.length) | 0] : clusters[0]; hang.push([c[0] + (S() - 0.5) * c[2], c[1] + c[2] * 0.6, Math.PI / 2 + (S() - 0.5) * 0.9, size * (0.22 + S() * 0.22)]); }
+      paintThornVines(g, S, hang, F, sc, 0.02);
+      // bulbes toxiques
+      const bulbs = [];
+      for (let i = 0; i < 3; i++) { const c = clusters[(S() * clusters.length) | 0]; bulbs.push([c[0] + (S() - 0.5) * c[2] * 0.8, c[1] + (S() - 0.3) * c[2] * 0.6, size * (0.045 + S() * 0.03)]); }
+      paintToxicBulbs(g, bulbs, F);
+      paintToxicDrips(g, bulbs.slice(0, 1).map(([bx, by, r]) => [bx, by + r * 0.8, r * 3, r * 0.35]), F);
+    }
     if (bloom > 0) {
       const fl = [];
       for (let i = 0; i < Math.round(16 * bloom); i++) {
@@ -505,7 +603,28 @@
       g.fillStyle = rgb(F(mix(body, SUNLIGHT, 0.35)));
       g.fillRect(fx, fy + 9, 7, 1.5);
     }
-    volumeBlobs(g, it.ivy.map(([ix, iy, r]) => [L + ix, -iy, r]), P.ivy, F);
+    const ivy = it.ivy.map(([ix, iy, r]) => [L + ix, -iy, r]);
+    volumeBlobs(g, ivy, P.ivy, F);
+    const drips = (it.drips || []).map(([ix, iy]) => [L + ix, -iy]);
+    if (P.bloom > 0) {   // monde guéri : le lierre retombe du toit en petites grappes
+      volumeBlobs(g, drips.flatMap(([x, y]) => [[x, y, 9], [x + 1, y + 7, 4], [x - 1, y + 14, 3], [x + 1, y + 21, 2]]), P.ivy, F);
+    } else {   // monde malade : tiges épineuses qui grimpent les façades et pendent du toit, bulbes toxiques
+      const S = rng(it.seed * 0.53 + 0.29);
+      paintClumpThorns(g, S, ivy, F, 1);
+      const base = ivy.filter(([, y]) => y > -14);
+      const climb = [];
+      for (let i = 0; i < 2 && base.length; i++) { const c = base[(S() * base.length) | 0]; climb.push([c[0], c[1] - c[2] * 0.5, -Math.PI / 2 + (S() - 0.5) * 0.5, h * (0.35 + S() * 0.3)]); }
+      paintThornVines(g, S, climb, F, 1, 0);
+      // une touffe de ronces déborde du toit, des tiges en pendent
+      paintThornVines(g, S, drips.flatMap(([x, y]) => [[x - 3, y + 4, Math.PI / 2 + (S() - 0.5) * 0.4, 20 + S() * 16], [x + 6, y + 4, Math.PI / 2 + (S() - 0.5) * 0.4, 12 + S() * 10]]), F, 1, 0.02);
+      volumeBlobs(g, drips.flatMap(([x, y]) => [[x - 6, y + 2, 6], [x + 2, y - 1, 7.5], [x + 9, y + 2.5, 5]]), P.ivy, F);
+      const bulbs = [];
+      for (let i = 0; i < 2 && ivy.length; i++) { const c = ivy[(S() * ivy.length) | 0]; bulbs.push([c[0] + (S() - 0.5) * c[2], c[1] - c[2] * 0.2, 3.2 + S() * 2]); }
+      paintToxicBulbs(g, bulbs, F);
+      // coulures toxiques sous quelques fenêtres
+      const wins = it.wins.filter(([, wy]) => top + wy > top + Math.max(...roof) + 4);
+      paintToxicDrips(g, wins.filter(() => S() < 0.18).map(([wx, wy]) => [L + wx + 3.5, top + wy + 9, 10 + S() * 10, 2.6]), F);
+    }
     if (it.roofTree) {
       const k = Math.round(it.roofTree * n);
       paintTree(g, L + (w * k) / n, roofY(k) + 4, h * 0.45, P.treeLeaf, F, it.seed, P.bloom);
@@ -526,9 +645,17 @@
       const [x0, y0, r0] = list[i], [x1, y1, r1] = list[i + 1];
       list.push([(x0 + x1) / 2 + (R() - 0.5) * 6, Math.min(y0, y1) - (r0 + r1) * 0.3, (r0 + r1) * 0.38]);
     }
-    volumeBlobs(g, list, P.near, F);
-    g.fillStyle = rgb(F(mix(P.near, SUNLIGHT, 0.55)), 0.7);
+    volumeBlobs(g, list, P.bush, F);
+    g.fillStyle = rgb(F(mix(P.bush, SUNLIGHT, 0.55)), 0.7);
     blobsOn(g, list.flatMap(([x, y, r]) => [[x + r * 0.3, y - r * 0.5, 1.6], [x + r * 0.5, y - r * 0.2, 1.3]]));
+    if (P.bloom === 0) {   // monde malade : un roncier hérissé de tiges, avec un ou deux bulbes toxiques
+      const S = rng(it.seed * 0.61 + 0.17), sc = Math.max(0.7, it.h / 40);
+      paintClumpThorns(g, S, list, F, sc);
+      const tops = [...list].sort((a, b) => (a[1] - a[2]) - (b[1] - b[2])).slice(0, 4);
+      paintThornVines(g, S, tops.map(([x, y, r], i) => [x + (S() - 0.5) * r, y - r * 0.7, -Math.PI / 2 + (i % 2 ? 0.7 : -0.7) + (S() - 0.5) * 0.4, it.h * (0.35 + S() * 0.3)]), F, sc, 0.16);
+      const c = list[(S() * list.length) | 0], c2 = list[(S() * list.length) | 0];
+      paintToxicBulbs(g, [[c[0], c[1] - c[2] * 0.2, it.h * 0.09], [c2[0] + c2[2] * 0.3, c2[1], it.h * 0.07]], F);
+    }
     if (P.bloom > 0) {
       const fl = [];
       for (let i = 0; i < 10; i++) {
@@ -547,7 +674,7 @@
     const n = 3 + ((Math.random() * 4) | 0);
     const roof = [];
     for (let k = 0; k <= n; k++) roof.push(Math.random() * h * (kind === 'tower' ? 0.12 : 0.25));
-    const wins = [], ivy = [];
+    const wins = [], ivy = [], drips = [];
     if (kind === 'tower' || kind === 'ruin') {
       for (let wy = h * 0.3; wy < h - 14; wy += 18)
         for (let wx = 8; wx < w - 12; wx += 16)
@@ -561,14 +688,13 @@
         for (let k = 0; k < m; k++) ivy.push([clamp(cx + rand(-1, 1) * size, 0, w), Math.max(2, cy + rand(-1, 1.4) * size), size * rand(0.5, 0.85)]);
       }
       for (let x = 0; x < w; x += 12) if (Math.random() < 0.7) ivy.push([x, rand(0, 8), rand(7, 12)]);   // pied envahi
-      for (let k = 0; k < 2; k++) {                              // lierre qui déborde du toit et retombe
+      for (let k = 0; k < 2; k++) {                              // ce qui déborde du toit et retombe
         const ix = Math.random() * w, iy = h - roof[Math.round((ix / w) * n)] - rand(0, 6);
-        ivy.push([ix, iy, rand(7, 11)]);
-        for (let j = 1; j <= 3; j++) ivy.push([ix + rand(-2, 2), iy - j * 7, 5 - j]);
+        drips.push([ix, iy]);
       }
     }
     const roofTree = kind === 'ruin' && Math.random() < 0.4 ? rand(0.25, 0.75) : 0;
-    return { kind, x: (i / count) * PERIOD + rand(0, 50), w, h, n, roof, wins, ivy, roofTree, seed };
+    return { kind, x: (i / count) * PERIOD + rand(0, 50), w, h, n, roof, wins, ivy, drips, roofTree, seed };
   }
   function bakeItem(it, L) {
     const paint = P => g => {
@@ -673,7 +799,7 @@
 
   // ---------- Partie ----------
   function reset() {
-    score = 0; distance = 0; health = 0;
+    score = 0; distance = 0; health = 0; LOOK.vis = 0; lookStep = 0; bloomWave = null; updateLook(0);
     player = { y: H * 0.45, vy: 0, tilt: 0, flap: 0, mouth: 0, belly: 0, alive: true, inv: 0, charge: 0, gulp: 0, chew: 0, wide: 0, megaT: 0 };
     beams = [];
     traps = [];
@@ -706,7 +832,7 @@
   }
 
   // Choc : Gloub recrache une goutte (une explosion qui dégage les ronces autour de lui).
-  // Le ventre vide, le choc est fatal.
+  // Sans aucune force (niveau Gloub), le choc est fatal.
   function hurt(px) {
     if (player.inv > 0 || state !== 'play') return;
     if (boss && boss.dying >= 0) return;   // le Cœur est vaincu : plus rien ne peut blesser Gloub pendant la floraison
@@ -725,8 +851,13 @@
       }
     }
     for (const b of bugs) if (b.alive && touches(b.x, b.y, px, player.y, 70)) killBug(b);
-    burst(px, player.y, '#b6ff3b', 16, 'dot');
-    floatText(px, player.y - 34, 'Beurk !', '#ff8fb8');
+    burst(px, player.y, '#b6ff3b', 10, 'dot');
+    // Gloub perd de son éclat : feuilles (ou pétales de sa couronne) qui tombent
+    for (let i = 0; i < 6; i++) {
+      const life = rand(0.9, 1.5);
+      particles.push({ x: px + rand(-4, 8), y: player.y - 32, vx: rand(-90, 30), vy: rand(-120, -40), life, max: life, color: sapLevel() >= 3 ? pick(['#ff9db5', '#ffc6dd']) : pick(['#6cc070', '#8fd96f']), r: rand(3.5, 5.5), rot: rand(0, 6), vr: rand(-6, 6), shape: 'leaf' });
+    }
+    floatText(px, player.y - 46, 'Aïe !', '#ff8fb8');
   }
 
   // ---------- Moustiques de suie : petites nuées qui foncent en zigzag vers Gloub ----------
@@ -851,8 +982,44 @@
   const HEAL_SAP = 0.003, HEAL_SALIVA = 0.0004;
   const BOSS_R = 150;             // rayon du Cœur de ronce (unités logiques)
   // Bulbes du Cœur, en fractions du rayon : quatre autour, et le bulbe central (protégé jusqu'à la phase 3)
-  // (rayon en unités, points de vie : une onde de sève en retire 4, la salive 0,25, une méga-onde 45)
+  // (rayon en unités, points de vie : une onde de sève en retire 4, la salive 0,25, une méga-onde 25)
   const BOSS_BULBS = [[-0.66, -0.34, 20, 180], [-0.84, 0.16, 20, 180], [-0.5, 0.56, 20, 180], [-0.12, -0.58, 20, 180], [-0.3, 0.06, 27, 300]];
+
+  // Les paliers de la guérison et ce qu'ils libèrent
+  const MILESTONES = [
+    null,
+    { txt: 'Le smog se dissipe', sub: 'Monde guéri 25 %' },
+    { txt: 'Le ciel revient', sub: 'Monde guéri 50 %' },
+    { txt: 'La ville reverdit', sub: 'Monde guéri 75 %' },
+  ];
+  function smooth(u) { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); }
+  function updateLook(dt) {
+    const step = Math.floor(health * 4 + 1e-6);
+    const target = step / 4;
+    LOOK.vis += clamp(target - LOOK.vis, -dt * 0.35, dt * 0.35);
+    if (dt === 0) LOOK.vis = target;
+    const v = LOOK.vis;
+    LOOK.smog = 1 - smooth(v / 0.25);            // 25 % : le smog et les fumées disparaissent
+    LOOK.sky = smooth((v - 0.25) / 0.25);        // 50 % : le ciel et le lointain
+    LOOK.far = LOOK.sky;
+    LOOK.mid = smooth((v - 0.5) / 0.25);         // 75 % : la ville, les grands arbres, le sol
+    LOOK.near = smooth((v - 0.75) / 0.25);       // 100 % : les buissons et le premier plan
+    if (step > lookStep && state === 'play' && phase === 'travel' && MILESTONES[step]) {
+      const m = MILESTONES[step];
+      announce = { txt: m.txt, sub: m.sub, color: '#bff5a0', up: true, t: 0, dur: 2.4 };
+      bloomWave = { t: 0 };
+    }
+    lookStep = step;
+    if (bloomWave) {   // une vague de lumière balaie l'écran et sème des pétales
+      bloomWave.t += dt;
+      const x = -W * 0.2 + (bloomWave.t / 1.6) * W * 1.4;
+      if (Math.random() < 0.8) {
+        const life = rand(1.5, 2.5);
+        particles.push({ x: x + rand(-30, 30), y: rand(H * 0.2, H - GROUND_H), vx: rand(-20, 40), vy: rand(-40, 0), life, max: life, color: pick(['#ffc6dd', '#fff1a8', '#bff5a0', '#ffffff']), r: rand(2.5, 4.5), rot: rand(0, 6), vr: rand(-3, 3), shape: 'leaf' });
+      }
+      if (bloomWave.t > 1.6) bloomWave = null;
+    }
+  }
 
   function announceStage() {
     const st = STAGES[stage];
@@ -933,12 +1100,15 @@
   // La carapace : un rideau de ronces devant le Cœur, avec quelques bulbes à mûres. Il ne repousse pas.
   function makeCurtain() {
     const top = 8, bot = H - GROUND_H - 6, x0 = -BOSS_R - 105;
+    // Quelques capsules à mûres, réparties sur toute la hauteur, sur la face avant ou au milieu du rideau
+    const rows = Math.floor((bot - top) / ROW_H), podRows = new Set();
+    for (let i = 0; i < 4; i++) podRows.add(Math.floor(((i + 0.25 + Math.random() * 0.5) / 4) * rows));
     let prev = [];
     for (let y = top, row = 0; y < bot; y += ROW_H, row++) {
       const cur = [];
       for (let k = 0; k < 3; k++) {
         const ox = x0 + k * CELL_W * 0.92 + Math.sin(row * 0.7) * 9 + (row % 2) * CELL_W * 0.4;
-        const c = makeCell(boss.x + ox, y + rand(-3, 3), Math.random() < 0.08 ? 'pod' : 'bramble', CELL_R * rand(0.92, 1.08));
+        const c = makeCell(boss.x + ox, y + rand(-3, 3), podRows.has(row) && k === (row % 2) ? 'pod' : 'bramble', CELL_R * rand(0.92, 1.08));
         c.anchor = ox;
         let best = null, bd = CELL_W * 1.6;
         for (const p of prev) { const d = Math.abs(p.x - c.x); if (d < bd) { bd = d; best = p; } }
@@ -1001,10 +1171,11 @@
       b.attackT = b.stage === 1 ? rand(2.4, 3.2) : b.stage === 2 ? rand(1.9, 2.6) : rand(1.5, 2);
     }
     // Des mûres pour garder (ou retrouver) sa puissance pendant le combat
-    if (b.stage >= 2) {
+    // Peu de mûres pendant le combat : une seule de temps en temps, et seulement quand le cœur est à nu
+    if (b.stage === 3) {
       b.dropT -= dt;
       if (b.dropT <= 0) {
-        b.dropT = b.stage === 3 ? 5 : 9;
+        b.dropT = 12;
         const berry = makeBerry(b.x - BOSS_R - 30, clamp(player.y + rand(-90, 90), 60, H - GROUND_H - 60));
         berry.vx = -170;
         pickups.push(berry);
@@ -1084,7 +1255,7 @@
     for (const q of b.bulbs) {
       if (!q.alive || (q.core && b.stage < 3)) continue;
       const qx = b.x + q.ox, qy = b.y + q.oy;
-      if (qx > prev - 20 && qx <= m.x && Math.abs(qy - m.y) < m.half + q.r) damageBulb(q, 45, qx, qy);
+      if (qx > prev - 20 && qx <= m.x && Math.abs(qy - m.y) < m.half + q.r) damageBulb(q, 25, qx, qy);
     }
   }
 
@@ -1698,10 +1869,10 @@
   let announce = null;
   function announceLevel(dir, sub) {
     const lvl = sapLevel();
-    const txt = lvl === 0 ? 'Ventre vide' : LEVELS[lvl].name.replace(' !', '');
+    const txt = LEVELS[lvl].name;
     announce = {
       txt: dir >= 0 ? txt + ' !' : txt,
-      sub: sub || (dir > 0 ? 'Niveau ' + lvl : dir < 0 ? (lvl === 0 ? 'Attention, plus de mûre !' : 'Niveau perdu') : ''),
+      sub: sub || (dir > 0 ? 'Ondes : ' + LEVELS[lvl].wave : dir < 0 ? (lvl === 0 ? 'Plus aucune force : attention !' : 'Gloub perd de son éclat') : ''),
       color: dir > 0 ? (lvl === 4 ? '#ffe27a' : '#d8ff6a') : dir < 0 ? '#ff9db5' : '#d9a6ff',
       up: dir >= 0, t: 0,
     };
@@ -1745,13 +1916,13 @@
   // Niveaux de puissance : un par goutte avalée. Chaque tir = [angle, décalage vertical, rayon].
   // Que des tirs droits : pour viser, il faut se placer.
   const LEVELS = [
-    { name: 'Salive', shots: [[0, 0, 4]], dmg: 1, pierce: 1, speed: 1, cool: 1 },
-    { name: 'Sève', shots: [[0, 0, 7]], dmg: 4, pierce: 2, speed: 1.05, cool: 1 },
-    { name: 'Sève ×2', shots: [[0, -7, 7.5], [0, 7, 7.5]], dmg: 4, pierce: 2, speed: 1.2, cool: 0.9 },
+    { name: 'Gloub', wave: 'Salive', shots: [[0, 0, 4]], dmg: 1, pierce: 1, speed: 1, cool: 1 },
+    { name: 'Marqué', wave: 'Sève', shots: [[0, 0, 7]], dmg: 4, pierce: 2, speed: 1.05, cool: 1 },
+    { name: 'Nervuré', wave: 'Sève ×2', shots: [[0, -7, 7.5], [0, 7, 7.5]], dmg: 4, pierce: 2, speed: 1.2, cool: 0.9 },
     // Grande onde : une seule onde, trois fois plus haute, qui traverse 3 touffes
-    { name: 'Grande onde', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
+    { name: 'Couronné', wave: 'Grande onde', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
     // Méga-onde : la grande onde, plus toutes les ~1 s une onde géante (concentration puis libération)
-    { name: 'Méga-onde !', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
+    { name: 'Esprit', wave: 'Méga-onde', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
   ];
   // Pas de baisse avec le temps : chaque mûre fait monter d'un niveau, chaque choc fait perdre un niveau.
   const BEAM_CHARGE = 1.1, BEAM_HALF = 6;
@@ -1928,11 +2099,12 @@
       }
 
       if (announce) announce.t += dt;
+      updateLook(dt);
       shootTimer -= dt;
       if (shootTimer <= 0) spit(px);
       if (sapLevel() === 4) {   // la méga-onde est temporaire
         player.megaT -= dt;
-        if (player.megaT <= 0) { player.belly = BELLY_PER_PICKUP * 3; player.megaT = 0; player.charge = 0; announceLevel(-1, 'La méga-onde s\'épuise'); }
+        if (player.megaT <= 0) { player.belly = BELLY_PER_PICKUP * 3; player.megaT = 0; player.charge = 0; announceLevel(-1, 'L\'esprit se rendort'); }
       }
       if (sapLevel() === 4) {   // le rayon se charge, puis part tout droit
         player.charge += dt;
@@ -2055,30 +2227,39 @@
   const skyCache = { cv: document.createElement('canvas'), health: -1, w: 0, h: 0 };
   function drawSky() {
     const sx = W * 0.78, sy = H * 0.2, sr = Math.min(W, H) * 0.08;
-    if (skyCache.w !== W || skyCache.h !== H || Math.abs(skyCache.health - health) > 0.004) {
+    const hs = LOOK.sky, sm = LOOK.smog;
+    if (skyCache.w !== W || skyCache.h !== H || Math.abs(skyCache.health - hs) > 0.004 || Math.abs((skyCache.smog ?? -1) - sm) > 0.004) {
       const cw = 192, ch = Math.max(2, Math.round(cw * H / W)), c = skyCache.cv;
       c.width = cw; c.height = ch;
       const g = c.getContext('2d');
       g.setTransform(cw / W, 0, 0, ch / H, 0, 0);
       const lg = g.createLinearGradient(0, 0, 0, H);
       lg.addColorStop(0, rgb(col('skyTop')));
+      lg.addColorStop(0.45, rgb(col('skyMid')));
+      lg.addColorStop(HORIZON, rgb(col('skyBot')));
       lg.addColorStop(1, rgb(col('skyBot')));
       g.fillStyle = lg; g.fillRect(0, 0, W, H);
-      const halo = g.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * 4);
-      halo.addColorStop(0, rgb([255, 236, 190], 0.35 + health * 0.25));
+      const halo = g.createRadialGradient(sx, sy, sr * 0.5, sx, sy, sr * 4.5);
+      halo.addColorStop(0, rgb([255, 236, 190], 0.3 + hs * 0.35));
       halo.addColorStop(1, rgb([255, 236, 190], 0));
       g.fillStyle = halo; g.fillRect(0, 0, W, H);
-      skyCache.health = health; skyCache.w = W; skyCache.h = H;
+      // smog : une bande brun-violet qui monte de l'horizon et étouffe le ciel
+      if (sm > 0) {
+        const sg = g.createLinearGradient(0, H * HORIZON, 0, H * 0.12);
+        sg.addColorStop(0, rgb([120, 96, 78], 0.55 * sm)); sg.addColorStop(0.5, rgb([110, 88, 90], 0.3 * sm)); sg.addColorStop(1, rgb([90, 74, 96], 0));
+        g.fillStyle = sg; g.fillRect(0, 0, W, H * HORIZON);
+      }
+      skyCache.health = hs; skyCache.smog = sm; skyCache.w = W; skyCache.h = H;
     }
     ctx.drawImage(skyCache.cv, 0, 0, W, H);
-    ctx.fillStyle = rgb(mix([236, 200, 150], [255, 246, 214], health), 0.55 + health * 0.4);
+    ctx.fillStyle = rgb(mix([236, 200, 150], [255, 246, 214], LOOK.sky), 0.45 + (1 - LOOK.smog) * 0.15 + LOOK.sky * 0.35);
     ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
 
     // Rayons de lumière quand le monde guérit
-    if (health > 0.2 && !lite) {
+    if (LOOK.sky > 0.02 && !lite) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = rgb([255, 240, 200], (health - 0.2) * 0.09);
+      ctx.fillStyle = rgb([255, 240, 200], LOOK.sky * 0.075);
       const L = Math.max(W, H) * 1.6;
       for (let i = 0; i < 6; i++) {
         const ang = 1.75 + i * 0.22 + Math.sin(time * 0.25 + i * 1.3) * 0.04;
@@ -2092,13 +2273,67 @@
       ctx.restore();
     }
     drawClouds();
+    drawBirds();
+  }
+
+  // Monde guéri : des vols d'oiseaux traversent le ciel
+  function drawBirds() {
+    const a = LOOK.sky * (0.4 + LOOK.mid * 0.6);
+    if (a < 0.02) return;
+    ctx.save();
+    ctx.strokeStyle = rgb([52, 64, 84], 0.75 * a); ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (let f = 0; f < 2; f++) {
+      const span = W + 400, fx = ((time * (26 + f * 9) + f * 640) % span) - 200, fy = H * (0.14 + f * 0.1) + Math.sin(time * 0.4 + f) * 10;
+      for (let i = 0; i < 5; i++) {
+        const bx = fx - Math.abs(i - 2) * 22 - (i > 2 ? 4 : 0), by = fy + Math.abs(i - 2) * 11 + (i - 2) * 2, w = 7 - f, flap = Math.sin(time * 9 + i * 1.3 + f) * 3;
+        ctx.beginPath(); ctx.moveTo(bx - w, by - flap); ctx.quadraticCurveTo(bx - w * 0.4, by - 2, bx, by); ctx.quadraticCurveTo(bx + w * 0.4, by - 2, bx + w, by - flap); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Monde malade : au loin, des cheminées d'usine crachent leur fumée. Elle s'arrête quand le smog se dissipe.
+  const CHIMNEYS = [[0.12, 0.2, 16], [0.2, 0.26, 20], [0.55, 0.18, 14], [0.63, 0.23, 18], [0.86, 0.21, 15]];
+  function drawFactories() {
+    const span = W + 500, off = distance * 0.02, body = mix(mix(col('far'), SHADOW, 0.25), col('skyBot'), 0.45);
+    for (let k = 0; k < CHIMNEYS.length; k++) {
+      const [fx, fh, fw] = CHIMNEYS[k];
+      const x = ((fx * span - off) % span + span) % span - 250, base = hy() + arc(x) + 2, top = base - H * fh;
+      ctx.fillStyle = rgb(body);
+      if (k % 2 === 0) ctx.fillRect(x - 46, base - H * 0.07, 70, H * 0.07);   // atelier au pied
+      ctx.beginPath(); ctx.moveTo(x - fw / 2, base); ctx.lineTo(x - fw * 0.38, top); ctx.lineTo(x + fw * 0.38, top); ctx.lineTo(x + fw / 2, base); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = rgb(mix(body, SUNLIGHT, 0.18));
+      ctx.fillRect(x - fw * 0.45, top - 3, fw * 0.9, 4);
+      ctx.fillStyle = rgb(mix(body, [150, 60, 60], 0.35));   // bandes rouge sale
+      ctx.fillRect(x - fw * 0.4, top + 10, fw * 0.8, 3); ctx.fillRect(x - fw * 0.42, top + 20, fw * 0.84, 3);
+      if (LOOK.smog > 0.01) {   // panache de fumée : bouffées qui montent, gonflent, dérivent et pâlissent
+        for (let i = 0; i < 9; i++) {
+          const u = (time * 0.11 + i / 9 + k * 0.37) % 1;
+          const px = x - u * 110 + Math.sin(u * 7 + i + k) * 8, py = top - 6 - u * 150, r = 6 + u * 30;
+          ctx.fillStyle = rgb(mix([96, 84, 92], [176, 160, 160], u), LOOK.smog * 0.42 * Math.sin(Math.PI * Math.min(1, u * 1.15)));
+          ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  }
+
+  // Vague de lumière d'un palier de guérison
+  function drawBloomWave() {
+    if (!bloomWave) return;
+    const x = -W * 0.2 + (bloomWave.t / 1.6) * W * 1.4, w = W * 0.22;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createLinearGradient(x - w, 0, x + w, 0);
+    g.addColorStop(0, 'rgba(255,240,200,0)'); g.addColorStop(0.5, 'rgba(255,240,200,0.28)'); g.addColorStop(1, 'rgba(255,240,200,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - w, 0, w * 2, H);
+    ctx.restore();
   }
 
   // Cumulus peints : base plate, ombre bleutée, rehauts blancs
   // Nuage en volume (ombre, masse, lumière), à base plate. Peint dans une petite image mise en cache,
   // refaite seulement quand la guérison change de couleur le ciel ou que la finesse du rendu change.
   function drawCloud(c, x) {
-    const rs = VS * PR, hq = Math.round(health * 40) / 40;
+    const rs = VS * PR, hq = Math.round(LOOK.sky * 40) / 40;
     let m = c.spr;
     if (!m || m.h !== hq || m.rs !== rs) {
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
@@ -2220,8 +2455,8 @@
   // Chaque élément de décor existe en version malade et guérie. On garde en cache leur mélange au niveau
   // de guérison actuel, déjà à la finesse de l'écran : une seule copie d'image par élément, sans
   // redimensionnement, au lieu de deux copies fondues l'une sur l'autre à chaque image.
-  function drawMixed(o, x, y) {
-    const rs = VS * PR, hq = Math.round(health * 40) / 40, a = o.sick, b = o.heal;
+  function drawMixed(o, x, y, h) {
+    const rs = VS * PR, hq = Math.round(h * 40) / 40, a = o.sick, b = o.heal;
     let m = o.mix;
     if (!m || m.h !== hq || m.rs !== rs) {
       if (!m) m = o.mix = { cv: document.createElement('canvas') };
@@ -2245,7 +2480,7 @@
         if (x > W + 120 || x + it.w < -120) continue;
         // Simple copie d'image, sans rotation ni arrondi au pixel (l'arrondi faisait avancer les plans lointains par à-coups)
         const xc = x + it.w / 2;
-        drawMixed(it, xc, groundY(L.speed, xc));
+        drawMixed(it, xc, groundY(L.speed, xc), LOOK[L.key]);
       }
     }
   }
@@ -2278,21 +2513,24 @@
         g.fillStyle = F([28, 24, 30]);
         blobsOn(g, [[-20, -5, 6], [20, -5, 6]]);
         volumeBlobs(g, [[-6, -32, 9], [2, -35, 7], [10, -32, 7], [26, -20, 8], [22, -26, 6], [-28, -18, 6]], ivy, FA);
+        if (!P.bloom) { const S = rng(p.seed * 0.7 + 0.2); paintThornVines(g, S, [[2, -40, -Math.PI / 2 - 0.5, 24], [24, -26, -0.6, 20], [-28, -22, Math.PI + 0.5, 18]], FA, 1, 0.12); paintToxicBulbs(g, [[6, -36, 4]], FA); }
         break;
       }
-      case 'puddle': { // flaque d'huile irisée qui redevient de l'eau claire
-        g.fillStyle = F(P.bloom ? [110, 180, 215] : [28, 22, 34]);
-        g.beginPath(); g.ellipse(0, -1, 42, 7, 0, 0, Math.PI * 2); g.fill();
+      case 'puddle': { // mare de boue toxique (comme celle de la cuve du Cœur) qui redevient de l'eau claire
         if (P.bloom) {
+          g.fillStyle = F([110, 180, 215]);
+          g.beginPath(); g.ellipse(0, -1, 42, 7, 0, 0, Math.PI * 2); g.fill();
           g.fillStyle = 'rgba(255,255,255,0.45)';
           g.beginPath(); g.ellipse(8, -3, 16, 2, 0, 0, Math.PI * 2); g.fill();
         } else {
-          const gr = g.createLinearGradient(-20, 0, 20, 0);
-          gr.addColorStop(0, 'rgba(255,80,200,0.35)');
-          gr.addColorStop(0.5, 'rgba(80,220,255,0.35)');
-          gr.addColorStop(1, 'rgba(200,255,80,0.35)');
-          g.fillStyle = gr;
-          g.beginPath(); g.ellipse(-4, -2, 18, 3, 0, 0, Math.PI * 2); g.fill();
+          g.fillStyle = F([34, 40, 22]);
+          g.beginPath(); g.ellipse(0, -1, 42, 7, 0, 0, Math.PI * 2); g.fill();
+          g.fillStyle = rgb(FA(TOXIC_DEEP));
+          g.beginPath(); g.ellipse(-2, -1.5, 34, 5, 0, 0, Math.PI * 2); g.fill();
+          g.fillStyle = rgb(FA(TOXIC_RGB), 0.8);
+          g.beginPath(); g.ellipse(6, -2.5, 15, 1.8, 0, 0, Math.PI * 2); g.fill();
+          g.strokeStyle = rgb(FA(mix(TOXIC_RGB, SUNLIGHT, 0.4)), 0.9); g.lineWidth = 1;   // bulles
+          for (const [bx, by, br] of [[-14, -2, 2], [-6, -3, 1.4], [18, -1.5, 1.6]]) { g.beginPath(); g.arc(bx, by, br, 0, Math.PI * 2); g.stroke(); }
         }
         break;
       }
@@ -2309,6 +2547,7 @@
         g.fillStyle = F([70, 72, 78]);
         g.fillRect(10, -80, 9, 5);
         volumeBlobs(g, [[0, -6, 8], [-3, -12, 6], [2, -22, 6], [-1, -34, 6], [1, -46, 5], [0, -56, 4]], ivy, FA);
+        if (!P.bloom) { const S = rng(p.seed * 0.7 + 0.2); paintThornVines(g, S, [[0, -50, -Math.PI / 2 + 0.3, 26], [12, -78, Math.PI / 2, 18]], FA, 1, 0.03); paintToxicBulbs(g, [[-2, -30, 3.5]], FA); }
         break;
       default: // gravats
         g.fillStyle = 'rgba(20,14,26,0.25)';
@@ -2326,7 +2565,7 @@
   function drawProp(p) {
     const x = screenX(p.X, p.s);
     if (x < -200 || x > W + 200) return;
-    drawMixed(p, x, groundY(p.s, x));
+    drawMixed(p, x, groundY(p.s, x), p.s < 0.6 ? LOOK.mid : LOOK.near);   // les objets lointains guérissent avec la ville
   }
   function drawProps(min, max) {
     for (const p of props) if (p.s >= min && p.s < max) drawProp(p);
@@ -2335,7 +2574,7 @@
   // Brume de pollution qui se dissipe avec la guérison
   function drawHaze() {
     if (lite) return;
-    ctx.fillStyle = rgb([110, 95, 60], (1 - health) * 0.14);
+    ctx.fillStyle = rgb([110, 92, 70], LOOK.smog * 0.16 + (1 - LOOK.mid) * 0.06);
     ctx.fillRect(0, 0, W, H);
   }
 
@@ -2360,7 +2599,7 @@
 
   function drawMotes() {
     if (lite) return;
-    const c = mix([150, 132, 104], [255, 240, 150], health);
+    const c = mix([150, 132, 104], [255, 240, 150], LOOK.near);
     ctx.fillStyle = rgb(c, 0.55);
     for (const m of motes) { ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2); ctx.fill(); }
   }
@@ -2437,7 +2676,7 @@
   function drawWinds() {
     if (lite) return;
     ctx.save();
-    ctx.strokeStyle = rgb([255, 255, 255], 0.28 + health * 0.15);
+    ctx.strokeStyle = rgb([255, 255, 255], 0.28 + LOOK.sky * 0.15);
     ctx.lineWidth = 1.6;
     ctx.lineCap = 'round';
     for (const w of winds) {
@@ -3307,7 +3546,10 @@
   // Construit comme une vraie sphère vue de trois quarts : yeux, oreilles, joues, pieds et ailes sont
   // placés sur le corps en 3D puis projetés, pour que tout reste cohérent, même quand les ailes battent.
   // Comme chez Ghibli : le personnage a un contour, le décor n'en a pas.
-  const BAT = [40, 46, 60], BAT_RIM = [130, 196, 172], INK = '#120e18', EAR_PINK = [240, 140, 162];
+  const BAT0 = [40, 46, 60], RIM0 = [130, 196, 172], INK = '#120e18', EAR_PINK = [240, 140, 162];
+  // Gloub s'éveille : sa puissance se lit sur lui-même (voir drawGloub). En forme d'esprit, son corps vire au vert d'eau lumineux.
+  const SPIRIT_BODY = [62, 128, 128], SPIRIT_RIM = [210, 255, 225], SEVE_RGB = [143, 217, 111];
+  let BAT = BAT0, BAT_RIM = RIM0, GL = 0, spiritK = 0;   // GL : niveau dessiné en ce moment
   const YAW = 0.45, CYAW = Math.cos(YAW), SYAW = Math.sin(YAW);   // tourné d'environ 25° vers la droite
   // Repère du personnage : x = son flanc (négatif = côté tourné vers nous), y = haut, z = avant
   function proj(p, R) { return { x: (p[0] * CYAW + p[2] * SYAW) * R, y: -p[1] * R, z: -p[0] * SYAW + p[2] * CYAW }; }
@@ -3361,6 +3603,13 @@
       ctx.lineTo(wg.base.x + (q.x - wg.base.x) * 0.88, wg.base.y + (q.y - wg.base.y) * 0.88);
     }
     ctx.stroke();
+    if (GL >= 2) {   // nervures de sève, et feuilles au bout des doigts
+      ctx.strokeStyle = rgb(GL >= 4 ? [230, 255, 220] : SEVE_RGB, far ? 0.45 : 0.9); ctx.lineWidth = GL >= 4 ? 1.6 : 1.1;
+      ctx.beginPath();
+      for (const k of ['top', 'tip', 'f2', 'f3']) { const q = P[k]; ctx.moveTo(wg.base.x, wg.base.y); ctx.lineTo(wg.base.x + (q.x - wg.base.x) * 0.85, wg.base.y + (q.y - wg.base.y) * 0.85); }
+      ctx.stroke();
+      if (!far) for (const k of (GL >= 3 ? ['top', 'tip', 'f2'] : ['top'])) { const q = P[k]; bLeaf(Math.atan2(q.x - wg.base.x, -(q.y - wg.base.y)), GL >= 4 ? 7 : 6, q.x, q.y, GL >= 4 ? '#c8ffd8' : '#8fd96f'); }
+    }
     if (!far) {   // reflet sur le bord d'attaque, côté soleil
       ctx.strokeStyle = rgb(BAT_RIM, 0.5); ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(root.x, root.y + 1.5);
@@ -3426,6 +3675,46 @@
            [ix + irx * 0.46, iy + iry * 0.32, s * 0.1], [ix - irx * 0.1, iy - iry * 0.6, s * 0.09]]);
   }
 
+  function bLeaf(a, len, x, y, col = '#6cc070') {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(-len * 0.5, -len * 0.55, 0, -len); ctx.quadraticCurveTo(len * 0.45, -len * 0.5, 0, 0);
+    ctx.fillStyle = col; ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = 1.1; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.strokeStyle = 'rgba(36,26,46,0.35)'; ctx.lineWidth = 0.6;   // nervure
+    ctx.beginPath(); ctx.moveTo(0, -len * 0.1); ctx.lineTo(0, -len * 0.8); ctx.stroke();
+    ctx.restore();
+  }
+  function miniFlower(x, y, r, c1, c2, rot = 0) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+    for (let i = 0; i < 5; i++) {
+      ctx.save(); ctx.rotate(i / 5 * Math.PI * 2);
+      ctx.fillStyle = i % 2 ? c1 : c2; ctx.strokeStyle = INK; ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.ellipse(0, -r * 0.9, r * 0.6, r * 0.9, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = INK; ctx.lineWidth = 0.8; ctx.stroke();
+    ctx.restore();
+  }
+  // Sur la tête : la houppette d'origine (deux petites feuilles), remplacée par une couronne de fleurs au niveau 4
+  function drawCrown(lvl) {
+    ctx.save(); ctx.scale(1.3, 1.3); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (lvl >= 3) {
+      bLeaf(-1.2, 6, -7, 0, '#6cc070'); bLeaf(1.2, 6, 7, 0, '#6cc070');
+      miniFlower(-5, -3, 3.2, '#ff9db5', '#ffb3c8', 0.3);
+      miniFlower(5, -2, 2.8, '#fff3f6', '#ffd6e2', -0.2);
+      if (lvl >= 4) glow(0, -8, 14, '255,230,150', 0.7);
+      miniFlower(0, -8, lvl >= 4 ? 4.6 : 3.4, '#ff9db5', '#ffb3c8', lvl >= 4 ? time * 0.8 : 0);
+    } else {
+      ctx.strokeStyle = INK; ctx.lineWidth = 3.2;
+      ctx.beginPath(); ctx.moveTo(0, 1); ctx.quadraticCurveTo(-2, -2, 0, -4); ctx.stroke();
+      ctx.strokeStyle = '#5aa45e'; ctx.lineWidth = 1.7;
+      ctx.beginPath(); ctx.moveTo(0, 1); ctx.quadraticCurveTo(-2, -2, 0, -4); ctx.stroke();
+      bLeaf(-0.35, 6, 0, -4, '#8fd96f'); bLeaf(0.35, 6, 0, -4, '#8fd96f');
+    }
+    ctx.restore();
+  }
+
   // Élément plat posé sur la sphère (joue, ventre) : aplati selon l'orientation
   function surfaceEllipse(phi, lam, rx, ry, color, R) {
     const p = proj(sph(phi, lam), R);
@@ -3449,9 +3738,18 @@
     ctx.restore();
   }
 
+  let gloubShown = 0, gloubPop = 0;
   function drawGloub() {
     const px = W * PLAYER_X_RATIO, py = player.y;
-    const w = player.belly / BELLY_MAX, R = PLAYER_R, flap = player.flap;
+    const w = 0, R = PLAYER_R, flap = player.flap;
+    // Gloub s'éveille : la puissance se lit sur lui. 0 Gloub, 1 marque au front, 2 ailes nervurées et collerette,
+    // 3 couronne de fleurs et taches d'esprit, 4 forme d'esprit (méga-onde) : corps vert d'eau lumineux et aura.
+    const lvl = state === 'menu' ? 0 : sapLevel();
+    if (lvl !== gloubShown) { gloubPop = 1; gloubShown = lvl; }
+    gloubPop = Math.max(0, gloubPop - 0.035);
+    GL = lvl;
+    spiritK += ((lvl >= 4 ? 1 : 0) - spiritK) * 0.08;
+    BAT = mix(BAT0, SPIRIT_BODY, spiritK); BAT_RIM = mix(RIM0, SPIRIT_RIM, spiritK);
     // Coup d'aile à chaque tap, plus un battement rapide et continu entre deux taps
     const flutter = state === 'menu' ? 0 : Math.sin(time * 26) * 0.32 * (1 - flap);
     const alpha = -0.15 + 1.1 * flap + flutter;
@@ -3463,10 +3761,16 @@
     ctx.fillStyle = halo;
     ctx.fillRect(px - R * 3, py - R * 3, R * 6, R * 6);
 
+    if (spiritK > 0.02) {   // aura de l'esprit
+      glow(px, py, R * 4.2, '170,255,200', 0.55 * spiritK);
+      glow(px, py, R * 2.6, '255,240,200', 0.4 * spiritK);
+    }
+    if (gloubPop > 0) glow(px, py, R * 3.4, '200,255,180', gloubPop * 0.8);   // éclat quand il change
     ctx.save();
     ctx.translate(px, py);
     ctx.rotate(player.tilt * 0.6);
-    ctx.scale(1.35, 1.35);
+    const pop = 1 + 0.22 * gloubPop * Math.sin(gloubPop * Math.PI);
+    ctx.scale(1.35 * pop, 1.35 * pop);
     const gp = Math.sin(player.gulp * Math.PI);   // gloups : il gonfle puis reprend sa forme
     ctx.scale(1 + 0.28 * gp, 1 - 0.16 * gp);
 
@@ -3495,6 +3799,18 @@
     const blush = rgb(mix([255, 140, 160], [150, 210, 60], w), 0.75);
     surfaceEllipse(-0.85, -0.36, R * 0.2 + w * 4, R * 0.11 + w * 2.5, blush, R);
     surfaceEllipse(0.85, -0.36, R * 0.2 + w * 4, R * 0.11 + w * 2.5, blush, R);
+    if (lvl >= 1) {   // marques d'esprit : feuille sur le front, puis taches lumineuses sur les flancs
+      const mk = lvl >= 4 ? '#eaffd8' : '#8fd96f';
+      const f = proj(sph(0, 0.5), R);
+      if (lvl >= 3) glow(f.x, f.y, 8, '180,255,170', 0.7);
+      bLeaf(0, lvl >= 3 ? 8 : 7, f.x, f.y + 3, mk);
+      if (lvl >= 3) {
+        ctx.fillStyle = lvl >= 4 ? 'rgba(235,255,220,0.95)' : 'rgba(170,240,150,0.9)';
+        for (const [ph, la, r] of [[-0.95, 0.35, 1.6], [-1.05, 0.0, 1.3], [-0.95, -0.35, 1.1], [0.95, 0.35, 1.3], [1.05, 0, 1.1]]) {
+          const p = proj(sph(ph, la), R); if (p.z > 0.05) blobs([[p.x, p.y, r]]);
+        }
+      }
+    }
     drawEye(-0.42, -0.04, R * 0.33, R);
     drawEye(0.42, -0.04, R * 0.33, R);
     // Museau et bouche « :3 », grande ouverte quand il crache
@@ -3537,24 +3853,19 @@
     ctx.save();
     ctx.translate(top.x, top.y);
     ctx.rotate(Math.sin(time * 4) * 0.15 - player.vy / 2000);
-    ctx.fillStyle = '#6cc070'; ctx.strokeStyle = INK; ctx.lineWidth = 1.3;
-    for (const [a, len] of [[-0.6, 9], [0.1, 12], [0.7, 8]]) {
-      ctx.save();
-      ctx.rotate(a);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.quadraticCurveTo(-len * 0.45, -len * 0.6, 0, -len);
-      ctx.quadraticCurveTo(len * 0.4, -len * 0.5, 0, 0);
-      ctx.fill(); ctx.stroke();
-      ctx.restore();
-    }
+    drawCrown(lvl);
     ctx.restore();
     drawEar(-1, R);
 
+    if (lvl >= 2) {   // collerette de feuilles sous le menton
+      for (const [ph, a] of [[0.5, 2.6], [0.2, 3.0], [-0.15, 3.3], [-0.5, 3.7]]) { const p = proj(sph(ph, -0.85), R); if (p.z > -0.2) bLeaf(a, lvl >= 4 ? 8 : 7, p.x, p.y, lvl >= 4 ? '#c8ffd8' : '#7cc874'); }
+    }
     // Devant le corps : pied et aile du côté proche
+    ctx.strokeStyle = INK;
     drawFoot(-1, R);
     drawWing(wingShape(-1, alpha, R), false);
     ctx.restore();
+    BAT = BAT0; BAT_RIM = RIM0; GL = 0;
   }
 
   function drawParticles() {
@@ -3601,7 +3912,7 @@
     ctx.textAlign = 'left';
     label('Score ' + score, L, T, '#fff');
     ctx.font = '800 13px Nunito, system-ui, sans-serif';
-    label('Ventre', L, T + 28, '#fff');
+    label('Éveil', L, T + 28, '#fff');
     const bossHud = phase === 'boss' && boss && boss.dying < 0;
     if (bossHud) drawBossHud(R, T, label);
     else {
@@ -3610,22 +3921,20 @@
       label('Monde guéri ' + Math.round(health * 100) + ' %', R, T, '#fff');
     }
 
-    // Jauge du ventre
+    // Jauge d'éveil : vert sève vers vert d'eau lumineux (forme d'esprit)
     const w = player.belly / BELLY_MAX;
     const bx = L + 52, by = T + 29, bw = 100;
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(bx, by, bw, 11);
-    if (w > 0) { ctx.fillStyle = rgb(mix([216, 255, 106], [160, 90, 190], w)); ctx.fillRect(bx, by, bw * w, 11); }
+    if (w > 0) { ctx.fillStyle = rgb(mix([143, 217, 111], [200, 255, 225], Math.max(0, (w - 0.5) * 2))); ctx.fillRect(bx, by, bw * w, 11); }
     ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1;
     ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, 10);
     ctx.beginPath();
     for (let k = 1; k < 4; k++) { ctx.moveTo(bx + (bw * k) / 4 + 0.5, by); ctx.lineTo(bx + (bw * k) / 4 + 0.5, by + 11); }
     ctx.stroke();
     const lvl = sapLevel();
-    if (lvl) {
-      ctx.font = '800 12px Nunito, system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      label(LEVELS[lvl].name.replace(' !', ''), bx, by + 15, '#fff1a8');
-    }
+    ctx.font = '800 12px Nunito, system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    label(LEVELS[lvl].name + ' · ' + LEVELS[lvl].wave, bx, by + 15, lvl ? '#fff1a8' : '#d9c9de');
     if (lvl === 4) {   // temps restant de méga-onde
       const m = Math.max(0, player.megaT / MEGA_TIME), blink = player.megaT < 2 && Math.sin(time * 18) > 0;
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(bx, by + 31, bw, 5);
@@ -3651,6 +3960,8 @@
       const hx = R - 120, hy = T + 23;
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(hx, hy, 120, 8);
       ctx.fillStyle = '#7be07b'; ctx.fillRect(hx, hy, 120 * health, 8);
+      ctx.fillStyle = 'rgba(20,14,28,0.7)';   // repères des paliers : 25, 50, 75 %
+      for (const k of [0.25, 0.5, 0.75]) ctx.fillRect(hx + 120 * k - 1, hy - 2, 2, 12);
     }
     ctx.restore();
   }
@@ -3661,6 +3972,7 @@
     if (shakeT > 0) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
     drawSky();
     drawHills();
+    drawFactories();
     drawGroundPlane();
     drawLayer(layers[0]);
     drawProps(0, 0.28);
@@ -3669,6 +3981,7 @@
     drawLayer(layers[2]);
     drawProps(0.6, 2);
     drawHaze();
+    drawBloomWave();
     drawMotes();
     drawWinds();
     for (const f of flowers) drawFlower(f);

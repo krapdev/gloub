@@ -15,7 +15,9 @@ Chaque couleur du décor existe en deux versions et le jeu passe de l'une à l'a
 | Élément | Monde malade | Monde guéri |
 | --- | --- | --- |
 | Ciel | gris-violet vers ocre | bleu vif vers blanc-vert |
-| Arbres | feuillage violet, bulbes | feuillage vert, fleurs |
+| Arbres et buissons | ronces violettes, tiges épineuses, bulbes toxiques | feuillage vert, fleurs |
+| Lierre des ruines | ronces qui grimpent et pendent du toit, coulures vertes | lierre vert en grappes |
+| Flaques | boue toxique verte qui bouillonne | eau claire |
 | Sol | brun-rose | vert prairie |
 | Nuages | rosés et ternes | blancs et lumineux |
 
@@ -31,6 +33,31 @@ Le monde malade reste beau : c'est une aquarelle mélancolique, pas un décor «
   - devant, des buissons.
 - Des objets posés sur le sol défilent en perspective : voitures abandonnées, flaques, arbres, poteaux, gravats.
 - L'atmosphère est complétée par des nuages, des rayons de soleil, des traînées de vent, des poussières en suspension et de petits esprits lumineux.
+
+## La libération, par paliers
+
+Le monde ne guérit pas en glissant imperceptiblement : il change par **paliers** bien lisibles, du ciel vers le premier plan. Chaque palier est annoncé par un bandeau, une vague de lumière qui balaie l'écran en semant des pétales, et des repères sur la jauge « Monde guéri ».
+
+| Palier | Ce qui se libère |
+| --- | --- |
+| 0 % | Smog brun-violet qui monte de l'horizon, cheminées d'usine qui crachent leur fumée, soleil terne. |
+| 25 % — « Le smog se dissipe » | La fumée s'arrête, le smog et la brume s'en vont, le soleil perce. |
+| 50 % — « Le ciel revient » | Ciel bleu à trois tons, nuages blancs, rayons de soleil, vols d'oiseaux ; les tours lointaines reverdissent. |
+| 75 % — « La ville reverdit » | Les ruines, les grands arbres, le sol et les objets lointains. |
+| 100 % — « La forêt respire ! » | Les buissons et tout le premier plan. |
+
+Entre deux paliers, chaque partie du décor est soit malade, soit guérie : pas d'état intermédiaire boueux.
+
+## Un seul langage pour la maladie
+
+Tout ce qui est malade parle la même langue, des colonnes au décor du fond :
+
+- **Ronce = violet** : les colonnes, la haie du sol, le Cœur de ronce et, dans le décor, la canopée des arbres, les buissons et le lierre des ruines. Ce sont les mêmes touffes peintes en volume, avec des **épines claires** sur leur pourtour et des **tiges épineuses** qui s'en échappent : elles pendent des arbres et des toits, grimpent les façades, hérissent les buissons, et une tige étrangle chaque tronc.
+- **Toxique = vert acide lumineux** : les bulbes des colonnes, ceux du décor (nichés dans les ronces, avec leur lueur et leur reflet), les coulures sous les fenêtres, les flaques de boue, les veines et les graines du Cœur, l'abdomen des moustiques de suie.
+- **Guéri = vert feuille et fleurs** : chaque élément du décor a une version guérie de même silhouette. La guérison fond l'une dans l'autre : à mi-chemin, on voit encore les dernières ronces et les derniers bulbes sous le feuillage.
+- **La distance** atténue tout (brume vers la couleur du ciel) : les ronces du fond sont plus pâles, leurs bulbes luisent moins.
+
+Les détails malades (épines, tiges, bulbes, coulures) sont peints avec leur propre hasard, pour que la silhouette reste identique entre la version malade et la version guérie.
 
 ## Les murs de ronces
 
@@ -48,7 +75,13 @@ Le monde malade reste beau : c'est une aquarelle mélancolique, pas un décor «
 - **Corps** bleu-nuit (`#282E3C`) avec un liseré de lumière vert d'eau.
 - **Visage** : grands yeux brillants, joues roses, bouche « :3 ».
 - **Ailes kawaii**, hautes et larges, avec de gros festons arrondis.
-- **Corps** : petites griffes simples et une touffe de feuilles sur la tête.
+- **Corps** : petites griffes simples et, sur la tête, une petite houppette de deux feuilles (sa première fleur saine).
+- **L'éveil** : Gloub lui-même montre sa puissance, sans changer de silhouette.
+  - **Marqué** : une feuille d'esprit vert sève apparaît sur son front ;
+  - **Nervuré** : ses ailes prennent des nervures de sève et une feuille à la pointe, une collerette de feuilles sous le menton ;
+  - **Couronné** : une couronne de fleurs roses remplace la houppette, des taches d'esprit luisent sur ses flancs ;
+  - **Esprit** (méga-onde) : le corps vire au vert d'eau lumineux, les ailes s'éclaircissent, une aura l'entoure et la fleur dorée de sa couronne tourne.
+  - Il « saute » avec un éclat de lumière à chaque changement ; un choc fait tomber feuilles ou pétales.
 - **Animations** :
   - battement d'ailes à chaque tap, de plus en plus rapide quand on maintient ;
   - **gobage** : des lignes d'aspiration apparaissent, il ouvre grand la bouche (crocs visibles) et gonfle ;

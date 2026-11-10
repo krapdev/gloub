@@ -100,7 +100,27 @@ Les choix de conception, dans l'ordre où ils ont été pris.
 - **Si Gloub tombe pendant le combat**, on reprend au début du combat.
 - **Prochaine étape prévue** : la ville en ruine, puis la décharge et l'usine ([étapes et boss](07-etapes-et-boss.md)).
 
-## 12. La diffusion
+## 12. Un décor cohérent avec les ronces
+
+- **Le décor malade prend le langage des colonnes** : les arbres, buissons et lierres violets deviennent des ronces, hérissées d'épines et de tiges épineuses, avec des bulbes toxiques vert acide ; les flaques d'huile deviennent de la boue toxique.
+- **Règle des couleurs** : violet pour la ronce, vert acide pour le toxique, vert feuille et fleurs pour la guérison.
+
+## 13. Un fond plus beau, une libération lisible
+
+- **Ciel à trois tons**, smog et cheminées d'usine qui fument dans le monde malade, oiseaux dans le monde guéri.
+- **La guérison se voit par paliers** (25, 50, 75, 100 %), du ciel vers le premier plan, chacun annoncé par un bandeau et une vague de lumière.
+
+## 14. La pousse remplace le ventre
+
+- **Boss trop facile** : moins de mûres pendant le combat (4 capsules dans le rideau, aucune en phase 2, une toutes les 12 s en phase 3), méga-onde moins forte contre les bulbes.
+- **Le ventre est abandonné** : la puissance se lit sur la **pousse** que Gloub porte sur la tête (bourgeon, feuille, rameau, fleur, floraison). Les mûres la nourrissent, les chocs font tomber ses feuilles. Écartés : les lucioles et les graines.
+
+## 15. Gloub s'éveille
+
+- **La pousse sur la tête ne convainquait pas.** Trois planches de design comparées : une transformation de Gloub, une plante-trompette (liseron) tenue dans ses griffes, et un mélange des deux.
+- **Retenu : la transformation.** Gloub garde sa silhouette mais s'éveille par niveaux : marque au front, ailes nervurées et collerette de feuilles, couronne de fleurs, puis forme d'esprit vert d'eau lumineuse pendant la méga-onde.
+
+## 16. La diffusion
 
 - **Copie dans le dossier** `Documents/GitHub/gloub`.
 - **Application installable (PWA)** : jouable hors ligne, avec une icône dessinée par le jeu et des polices embarquées. L'écran titre est adapté au téléphone en paysage.

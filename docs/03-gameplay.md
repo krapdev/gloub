@@ -38,20 +38,22 @@ Hauteur gagnée selon la durée de l'appui (mesurée) :
 
 Le tir est **automatique et toujours droit devant**, avec un coup toutes les 0,13 s environ. Les tirs en éventail ont été écartés : le tir droit est plus exigeant et oblige à se placer face aux ronces.
 
-## Le ventre et les niveaux de puissance
+## L'éveil de Gloub et les niveaux de puissance
 
-- Chaque **mûre** gobée fait monter le tir **d'un niveau** (jusqu'au niveau 4).
-- Chaque **choc** fait perdre **un niveau**.
-- La puissance **ne baisse pas avec le temps** : on garde son niveau tant qu'on n'est pas touché. Seule la méga-onde est temporaire.
-- **Chaque évolution est annoncée** par un grand bandeau au centre de l'écran : en vert quand on monte (« Sève ×2 ! », niveau 2), en doré pour la méga-onde, en rose quand on perd un niveau.
+La puissance de Gloub se lit **sur lui** : à chaque mûre, l'esprit de la forêt s'éveille un peu plus en lui, jusqu'à sa forme d'esprit lumineuse. Plus Gloub est fort, plus il porte la nature guérie : c'est le thème du jeu porté par le héros.
 
-| Ventre | Niveau | Onde | Dégâts | Traverse |
-| --- | --- | --- | --- | --- |
-| vide | **Salive** | petite onde | 1 | 1 cellule |
-| 1 mûre | **Sève** | onde de sève | 4 | 2 |
-| 2 mûres | **Sève ×2** | deux ondes parallèles, plus rapides | 4 | 2 |
-| 3 mûres | **Grande onde** | onde large | 4 | 3 |
-| 4 mûres | **Méga-onde !** | grande onde + méga-onde | 4 | 3 |
+- Chaque **mûre** gobée l'éveille **d'un niveau** (jusqu'à la forme d'esprit).
+- Chaque **choc** lui fait perdre un niveau : des feuilles (ou des pétales de sa couronne) tombent (« Aïe ! »).
+- La puissance **ne baisse pas avec le temps**. Seule la forme d'esprit est temporaire.
+- **Chaque évolution est annoncée** par un grand bandeau (« Nervuré ! », « Ondes : Sève ×2 ») ; Gloub « saute » avec un éclat de lumière quand il change. Le HUD affiche la jauge « Éveil » et le niveau en cours.
+
+| Mûres | Niveau | Ce qui change sur Gloub | Onde | Dégâts | Traverse |
+| --- | --- | --- | --- | --- | --- |
+| 0 | **Gloub** | sa petite houppette de deux feuilles | Salive, petite onde | 1 | 1 cellule |
+| 1 | **Marqué** | une feuille d'esprit vert sève sur le front | Sève | 4 | 2 |
+| 2 | **Nervuré** | ailes nervurées de sève, une feuille au bout de l'aile, collerette de feuilles | Sève ×2, deux ondes parallèles, plus rapides | 4 | 2 |
+| 3 | **Couronné** | couronne de fleurs, taches d'esprit qui luisent, feuilles au bout des ailes | Grande onde | 4 | 3 |
+| 4 | **Esprit** | forme d'esprit : corps vert d'eau lumineux, ailes claires, aura, fleur dorée qui tourne | Méga-onde | 4 | 3 |
 
 ### La méga-onde
 
@@ -59,7 +61,7 @@ Le tir est **automatique et toujours droit devant**, avec un coup toutes les 0,1
 - Elle balaie une bande de 170 px de haut sur toute la largeur de l'écran. Elle purifie toutes les ronces, rochers et bulbes qu'elle croise, et tue les moustiques.
 - Elle **traverse les racines sans les casser** : on doit toujours passer par l'ouverture.
 - Un flash blanc accompagne le tir.
-- **Elle est temporaire** : elle dure 8 s (une jauge dorée sous le ventre montre le temps restant et clignote à la fin), puis Gloub redescend à la grande onde. Une mûre gobée pendant la méga-onde la recharge à 8 s.
+- **Elle est temporaire** : elle dure 8 s (une jauge dorée sous la jauge « Éveil » montre le temps restant et clignote à la fin), puis l'esprit se rendort et Gloub redescend à la grande onde. Une mûre gobée pendant la méga-onde la recharge à 8 s.
 - Elle se répète toutes les 1,1 s pendant ce temps.
 
 ### Salive et sève : arracher ou purifier
@@ -69,14 +71,14 @@ Le tir est **automatique et toujours droit devant**, avec un coup toutes les 0,1
 
 ## Les chocs
 
-- Un choc contre une cellule, le sol ou un moustique fait **recracher une mûre** : le tir perd un niveau.
+- Un choc contre une cellule, le sol ou un moustique fait **perdre un niveau** : Gloub perd de son éclat, des feuilles tombent, et le tir faiblit (« Aïe ! »).
 - Le choc dégage les ronces et les moustiques autour de Gloub, sauf les racines, et affiche « Beurk ! ».
 - Gloub est ensuite **invulnérable 1,4 s** (il clignote).
-- **Le ventre vide, le choc est fatal** : Gloub tombe et la partie est finie.
+- **Sans aucune force (niveau Gloub), le choc est fatal** : Gloub tombe et la partie est finie.
 
 ## Moustiques libérés
 
-- Chaque moustique abattu remplit la jauge « Libérés » (8 cases, sous le ventre).
+- Chaque moustique abattu remplit la jauge « Libérés » (8 cases, sous la jauge « Éveil »).
 - Jauge pleine : un **moustique libéré** rejoint Gloub, annoncé par un bandeau. Guéri de la corruption, il vole en léger différé au-dessus ou en dessous de Gloub, sert de **petite mitraillette** : son aiguille est bien droite et, par son bout, il tire des rafales de 6 dards de nectar (un toutes les 0,075 s, puis une pause de 0,45 s), rapides et en ligne droite. Pendant une rafale, il se stabilise pour que les dards restent alignés. Chaque dard fait un point de dégât. Il abat aussi les moustiques qu'il touche.
 - Deux alliés au plus en même temps. Avec deux alliés, une jauge pleine rapporte 50 points.
 - À chaque choc, un allié prend peur et s'envole.
@@ -86,6 +88,7 @@ Le tir est **automatique et toujours droit devant**, avec un coup toutes les 0,1
 Une partie a maintenant un but : guérir la forêt, puis vaincre la source de sa maladie.
 
 1. **La forêt étouffée** : annoncée au départ (« Guéris-la à 100 % »). Elle est guérie quand la jauge « Monde guéri » atteint 100 %, soit environ 2 à 3 minutes de jeu.
+   En chemin, la guérison se voit par **paliers** (25, 50, 75 %), annoncés par un bandeau et une vague de lumière, et marqués sur la jauge (voir la [direction artistique](02-direction-artistique.md)).
 2. **Le calme** : plus aucune colonne n'apparaît. Un bandeau annonce « La forêt respire ! » (+500), le paysage refleurit et des aigrettes s'envolent pendant 3,5 s.
 3. **Le Cœur de ronce** : le boss arrive par la droite et le défilement ralentit presque jusqu'à l'arrêt (voir ci-dessous).
 4. **La victoire** : écran « La vallée refleurit ! », avec le score, le temps, les moustiques libérés et le record. On peut repartir pour un nouveau voyage.
@@ -101,15 +104,15 @@ Une partie a maintenant un but : guérir la forêt, puis vaincre la source de sa
 - **Dégâts sur un bulbe** :
   - une onde de sève retire sa pleine valeur (4) ;
   - la salive retire 4 fois moins ;
-  - une méga-onde retire 45.
+  - une méga-onde retire 25.
 - **Points de vie** : 180 pour chacun des 4 bulbes autour, 300 pour le bulbe central.
 - **Le reste du cœur** absorbe les ondes : il faut viser les bulbes.
 
 | Phase | Déclenchement | Attaques | Aide |
 | --- | --- | --- | --- |
-| 1. La carapace | Arrivée du boss | Un rideau de ronces (3 cellules d'épaisseur) protège le cœur ; une racine fouette une bande de l'écran toutes les 2,4 à 3,2 s. | Le rideau contient des bulbes à mûres. |
-| 2. La colère | 2 bulbes crevés | Racines, graines toxiques (2 à la fois), nuées de 4 moustiques, toutes les 1,9 à 2,6 s. | Une mûre lâchée toutes les 9 s. |
-| 3. Le cœur à nu | 4 bulbes crevés | Le bouton central s'ouvre ; racines et graines (3 à la fois) en alternance, toutes les 1,5 à 2 s. Le cœur bat plus vite. | Une mûre toutes les 5 s, de quoi atteindre la méga-onde. |
+| 1. La carapace | Arrivée du boss | Un rideau de ronces (3 cellules d'épaisseur) protège le cœur ; une racine fouette une bande de l'écran toutes les 2,4 à 3,2 s. | Le rideau contient 4 capsules à mûres, réparties sur toute sa hauteur. |
+| 2. La colère | 2 bulbes crevés | Racines, graines toxiques (2 à la fois), nuées de 4 moustiques, toutes les 1,9 à 2,6 s. | Aucune mûre : il faut garder sa puissance. |
+| 3. Le cœur à nu | 4 bulbes crevés | Le bouton central s'ouvre ; racines et graines (3 à la fois) en alternance, toutes les 1,5 à 2 s. Le cœur bat plus vite. | Une mûre toutes les 12 s. |
 
 **Les attaques sont toujours annoncées** :
 
