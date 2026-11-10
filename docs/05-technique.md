@@ -43,18 +43,32 @@ Sur téléphone, le coût vient presque entièrement du **nombre de pixels peint
   - la haie de ronces du premier plan, dans une longue bande refaite toutes les quelques secondes ;
   - le grain du papier et le vignettage, peints à la taille réelle du canvas et recopiés pixel pour pixel.
 - **Aucun flou calculé à chaque image** (`shadowBlur`) : les lueurs (ondes, dards, méga-onde, bulbes, moustiques, esprits) sont faites d'un trait large et transparent ou d'un halo pré-dessiné (`glow`). Le texte du HUD est cerné d'un contour au lieu d'une ombre floue.
-- **Bandes du sol** : seules celles qui se voient sont tracées (W × 2,4 au lieu de W × 6). Elles coûtaient à elles seules près d'un tiers du rendu.
+- **Bandes du sol** : seules celles qui se voient sont tracées (W × 2,4 au lieu de W × 6), avec 7 points par bord au lieu de 10. Elles coûtaient à elles seules près d'un tiers du rendu.
 - **Décor pré-dessiné** : tours, ruines, arbres, buissons et objets au sol sont peints une fois (version malade et guérie).
 - **Pas de rotation** des images de décor, **pas d'arrondi au pixel** des positions (l'arrondi faisait trembler le fond).
 
-Mesures dans un navigateur de test sans carte graphique, au format d'un téléphone en paysage (844 × 390) :
+### Fluidité
 
-| Finesse de rendu | Avant | Après |
-| --- | --- | --- |
-| 2 (téléphone récent) | 16 images/s | 29 images/s |
-| 1 | 39 images/s | 60 images/s |
+Deuxième passe, centrée sur la régularité des images plutôt que sur leur nombre moyen.
 
-Avec la finesse adaptative, le jeu se stabilise vers 55 images/s dans ce même navigateur. Un vrai téléphone, avec sa carte graphique, fait mieux.
+- **Les colonnes de ronces sont peintes une fois** : chaque colonne a sa propre image, recopiée à chaque image du jeu. Elle n'est repeinte que quand une touffe casse ou qu'un rocher se fend. Seuls les éléments animés (lueur des bulbes, mûres nichées) sont dessinés en direct. Avant, les centaines de touffes de tous les murs étaient retracées à chaque image : c'était la plus grosse dépense du rendu (5 à 6 ms sur 24 dans le navigateur de test, 1,5 ms après).
+- **Cadence calée sur l'écran** : les navigateurs livrent les images à intervalles un peu irréguliers. Le jeu apprend la cadence de l'écran (60, 90, 120 Hz…) et avance d'un nombre entier d'images d'écran ; l'écart restant est rattrapé en douceur. Sur un écran à 60 Hz qui hésite de ± 1,5 ms, le tremblement du pas de temps est divisé par quatre.
+- **Plus d'à-coups aux paliers de guérison** : au passage d'un palier, chaque élément du décor et chaque nuage devait être repeint dans la même image. On en repeint au plus 3 par image ; les autres gardent un instant leur ancienne teinte ou sont posés en deux copies fondues. Les images de cache ne sont plus réallouées quand leur taille ne change pas.
+- **Plus d'à-coup au changement de finesse** : le grain du papier était tiré au hasard pixel par pixel sur tout l'écran. C'est maintenant une tuile de 256 × 256 répétée.
+- **Moins de tracés par image** :
+  - sillons et brume d'horizon du sol peints une fois (refaits quand la couleur du ciel change) ;
+  - collines remplies seulement jusque sous l'horizon (le sol recouvre le reste) ;
+  - aigrettes de pissenlit, fleurs et bulbes : une image pré-peinte au lieu de dizaines de traits et de dégradés.
+
+Mesures dans le même navigateur de test, au format d'un téléphone en paysage, finesse 1,5 :
+
+| Moment | Avant | Après | Images de plus de 25 ms (sur 5 s) |
+| --- | --- | --- | --- |
+| Forêt malade | 43 images/s | 53 images/s | 82 → 35 |
+| Méga-onde | 37 images/s | 47 images/s | 107 → 63 |
+| Cœur de ronce | 37 images/s | 47 images/s | 113 → 64 |
+
+Ce navigateur dessine sans carte graphique, où recopier une image coûte cher. Sur un vrai téléphone, recopier une image est presque gratuit : c'est le tracé des formes qui coûte, et la passe en a retiré la plus grande part.
 
 ## Application installable (PWA)
 
@@ -95,7 +109,8 @@ Ce qui a été vérifié avec Playwright (Chromium) :
 - temps de chargement de la sève ;
 - hauteur des sauts selon la durée de l'appui ;
 - largeur des couloirs dans les murs de racines ;
-- fluidité du décor, avec 40 à 55 images/s en rendu logiciel ;
+- fluidité du décor, avec 45 à 55 images/s en rendu logiciel, et régularité des images (nombre d'images de plus de 25 ms) ;
+- cadence de jeu sur des intervalles simulés (60, 90 et 120 Hz, images en retard, 30 images/s bridées) ;
 - installabilité (aucune erreur remontée par Chrome) ;
 - rechargement et partie hors ligne ;
 - mise en page de l'écran titre sur ordinateur, sur téléphone en portrait et en paysage (iPhone SE, iPhone 13, Android).

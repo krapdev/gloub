@@ -120,7 +120,11 @@ Les choix de conception, dans l'ordre où ils ont été pris.
 - **La pousse sur la tête ne convainquait pas.** Trois planches de design comparées : une transformation de Gloub, une plante-trompette (liseron) tenue dans ses griffes, et un mélange des deux.
 - **Retenu : la transformation.** Gloub garde sa silhouette mais s'éveille par niveaux : marque au front, ailes nervurées et collerette de feuilles, couronne de fleurs, puis forme d'esprit vert d'eau lumineuse pendant la méga-onde.
 
-## 16. La diffusion
+## 16. Fluidité
+
+- **Deuxième passe de performances**, centrée sur la régularité : colonnes de ronces peintes une fois par colonne, cadence calée sur l'écran, plus d'à-coups aux paliers de guérison ni au changement de finesse, moins de tracés par image. Détails dans la [technique](05-technique.md).
+
+## 17. La diffusion
 
 - **Copie dans le dossier** `Documents/GitHub/gloub`.
 - **Application installable (PWA)** : jouable hors ligne, avec une icône dessinée par le jeu et des polices embarquées. L'écran titre est adapté au téléphone en paysage.

@@ -232,7 +232,7 @@
 (() => {
   'use strict';
   const canvas = document.getElementById('c');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');   // « let » : on le remplace un instant pour peindre une colonne dans son image
   const overlay = document.getElementById('overlay');
   const ovTitle = document.getElementById('ov-title');
   const ovText = document.getElementById('ov-text');
@@ -1101,7 +1101,7 @@
   function makeCurtain() {
     const top = 8, bot = H - GROUND_H - 6, x0 = -BOSS_R - 105;
     // Quelques capsules à mûres, réparties sur toute la hauteur, sur la face avant ou au milieu du rideau
-    const rows = Math.floor((bot - top) / ROW_H), podRows = new Set();
+    const rows = Math.floor((bot - top) / ROW_H), podRows = new Set(), grp = { cells: [] };
     for (let i = 0; i < 4; i++) podRows.add(Math.floor(((i + 0.25 + Math.random() * 0.5) / 4) * rows));
     let prev = [];
     for (let y = top, row = 0; y < bot; y += ROW_H, row++) {
@@ -1113,7 +1113,7 @@
         let best = null, bd = CELL_W * 1.6;
         for (const p of prev) { const d = Math.abs(p.x - c.x); if (d < bd) { bd = d; best = p; } }
         c.link = best;
-        cells.push(c); cur.push(c);
+        cells.push(c); cur.push(c); c.grp = grp; grp.cells.push(c);
       }
       prev = cur;
     }
@@ -1804,6 +1804,7 @@
     if (special === 'root') gapHalf = Math.max(gapHalf, 80);   // les racines ne se cassent pas : passage généreux
     const ph = Math.random() * 6, ph2 = Math.random() * 6;
     const x0 = W + 60;
+    const grp = { cells: [] };   // la colonne : peinte d'un bloc dans sa propre image (voir drawWalls)
     let prev = [];
     for (let r = 0; r < rows; r++) {
       const row = [];
@@ -1834,7 +1835,7 @@
           for (const p of prev) { const d = Math.abs(p.x - x); if (kin(p) && d < bd) { bd = d; best = p; } }
           cell.link = best;
         }
-        cells.push(cell);
+        cells.push(cell); cell.grp = grp; grp.cells.push(cell);
         row.push(cell);
       }
       prev = row;
@@ -2335,7 +2336,8 @@
   function drawCloud(c, x) {
     const rs = VS * PR, hq = Math.round(LOOK.sky * 40) / 40;
     let m = c.spr;
-    if (!m || m.h !== hq || m.rs !== rs) {
+    if (!m || ((m.h !== hq || m.rs !== rs) && bakeBudget > 0)) {   // ancienne teinte gardée un instant si le budget est épuisé
+      if (m) bakeBudget--;
       let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
       for (const [dx, dy, r] of c.puffs) { x0 = Math.min(x0, dx - r); x1 = Math.max(x1, dx + r); y0 = Math.min(y0, dy - r); }
       x0 = Math.max(x0, -c.w) - 2; x1 = Math.min(x1, c.w) + 2; y0 -= 2;
@@ -2388,9 +2390,10 @@
       gr.addColorStop(1, rgb(mix(body, fogC, 0.55)));
       ctx.fillStyle = gr;
       ctx.beginPath();
-      ctx.moveTo(-16, H);
+      const bot = hy() + H * 0.1;   // le sol recouvre tout ce qui est sous l'horizon : inutile de peindre plus bas
+      ctx.moveTo(-16, bot);
       for (const [x, y] of pts) ctx.lineTo(x, y);
-      ctx.lineTo(W + 16, H);
+      ctx.lineTo(W + 16, bot);
       ctx.closePath(); ctx.fill();
       ctx.strokeStyle = rgb(mix(body, SUNLIGHT, 0.5), 0.8);
       ctx.lineWidth = 2;
@@ -2403,7 +2406,7 @@
   }
 
   // Sol en perspective : des bandes qui filent vers le point de fuite
-  const DEPTHS = [0, 0.015, 0.035, 0.07, 0.12, 0.2, 0.32, 0.48, 0.7, 1];
+  const DEPTHS = [0, 0.03, 0.09, 0.2, 0.38, 0.65, 1];   // assez de points pour la courbure, sans surcharger le tracé
   function drawGroundPlane() {
     const h0 = hy();
     ctx.fillStyle = rgb(col('ground2'));
@@ -2434,39 +2437,60 @@
     }
     ctx.fill();
 
-    // Sillons fixes en profondeur, qui épousent la courbure
-    ctx.strokeStyle = 'rgba(0,0,0,0.09)';
-    ctx.lineWidth = 2;
-    for (const s of [0.06, 0.13, 0.24, 0.4, 0.62, 0.9]) {
-      ctx.beginPath();
-      for (let x = 0; x <= W + 16; x += 16) { if (x === 0) ctx.moveTo(x, groundY(s, x)); else ctx.lineTo(x, groundY(s, x)); }
-      ctx.stroke();
+    // Sillons fixes en profondeur et brume d'horizon : ils ne bougent pas, on les peint une fois dans une image
+    // (refaite seulement quand la couleur du ciel change, aux paliers de guérison)
+    const fogC = rgb(col('skyBot')), rs = VS * PR, gc = groundTop;
+    if (gc.fog !== fogC || gc.rs !== rs || gc.w !== W || gc.h !== H) {
+      const pw = Math.ceil(W * rs), ph = Math.ceil((H - h0) * rs);
+      if (gc.cv.width !== pw || gc.cv.height !== ph) { gc.cv.width = pw; gc.cv.height = ph; }
+      const g = gc.cv.getContext('2d');
+      g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, pw, ph);
+      g.setTransform(rs, 0, 0, rs, 0, -h0 * rs);
+      g.strokeStyle = 'rgba(0,0,0,0.09)';
+      g.lineWidth = 2;
+      for (const s of [0.06, 0.13, 0.24, 0.4, 0.62, 0.9]) {
+        g.beginPath();
+        for (let x = 0; x <= W + 16; x += 16) { if (x === 0) g.moveTo(x, groundY(s, x)); else g.lineTo(x, groundY(s, x)); }
+        g.stroke();
+      }
+      const fc = col('skyBot'), fg = g.createLinearGradient(0, h0, 0, h0 + (H - h0) * 0.5);
+      fg.addColorStop(0, rgb(fc, 0.95));
+      fg.addColorStop(1, rgb(fc, 0));
+      g.fillStyle = fg;
+      g.fillRect(0, h0, W, H - h0);
+      Object.assign(gc, { fog: fogC, rs, w: W, h: H });
     }
-
-    // Brume d'horizon
-    const fogC = col('skyBot');
-    const fg = ctx.createLinearGradient(0, h0, 0, h0 + (H - h0) * 0.5);
-    fg.addColorStop(0, rgb(fogC, 0.95));
-    fg.addColorStop(1, rgb(fogC, 0));
-    ctx.fillStyle = fg;
-    ctx.fillRect(0, h0, W, H - h0);
+    ctx.drawImage(gc.cv, 0, h0, W, H - h0);
   }
+  const groundTop = { cv: document.createElement('canvas'), fog: '', rs: 0, w: 0, h: 0 };
 
   // Chaque élément de décor existe en version malade et guérie. On garde en cache leur mélange au niveau
   // de guérison actuel, déjà à la finesse de l'écran : une seule copie d'image par élément, sans
   // redimensionnement, au lieu de deux copies fondues l'une sur l'autre à chaque image.
+  // Aux paliers de guérison (ou quand la finesse du rendu change), tous les éléments devaient être repeints
+  // dans la même image : un à-coup bien visible. On en repeint au plus quelques-uns par image ; les autres
+  // gardent un instant leur ancienne teinte, ou, s'ils n'ont pas encore d'image, sont posés en deux copies.
+  let bakeBudget = 0;
   function drawMixed(o, x, y, h) {
     const rs = VS * PR, hq = Math.round(h * 40) / 40, a = o.sick, b = o.heal;
     let m = o.mix;
     if (!m || m.h !== hq || m.rs !== rs) {
-      if (!m) m = o.mix = { cv: document.createElement('canvas') };
-      const c = m.cv;
-      c.width = Math.max(1, Math.ceil(a.cv.width * rs)); c.height = Math.max(1, Math.ceil(a.cv.height * rs));
-      const g = c.getContext('2d');
-      g.setTransform(rs, 0, 0, rs, 0, 0);
-      if (hq < 1) g.drawImage(a.cv, 0, 0);
-      if (hq > 0) { g.globalAlpha = hq; g.drawImage(b.cv, 0, 0); }
-      m.h = hq; m.rs = rs;
+      if (bakeBudget > 0) {
+        bakeBudget--;
+        if (!m) m = o.mix = { cv: document.createElement('canvas') };
+        const c = m.cv, pw = Math.max(1, Math.ceil(a.cv.width * rs)), ph = Math.max(1, Math.ceil(a.cv.height * rs));
+        if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
+        const g = c.getContext('2d');
+        g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.clearRect(0, 0, pw, ph);
+        g.setTransform(rs, 0, 0, rs, 0, 0);
+        if (hq < 1) g.drawImage(a.cv, 0, 0);
+        if (hq > 0) { g.globalAlpha = hq; g.drawImage(b.cv, 0, 0); }
+        m.h = hq; m.rs = rs;
+      } else if (!m || m.rs !== rs) {   // pas encore d'image à cette finesse : deux copies fondues, juste le temps de la peindre
+        if (hq < 1) ctx.drawImage(a.cv, x - a.ox, y - a.oy);
+        if (hq > 0) { const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * hq; ctx.drawImage(b.cv, x - a.ox, y - a.oy); ctx.globalAlpha = a0; }
+        return;
+      }
     }
     ctx.drawImage(m.cv, x - a.ox, y - a.oy, m.cv.width / rs, m.cv.height / rs);
   }
@@ -2691,29 +2715,43 @@
   }
 
   // Petits esprits-aigrettes nés de la végétation purifiée
+  const spiritSprite = { cv: document.createElement('canvas'), rs: 0 };
   function drawSpirits() {
+    if (!spirits.length) return;
+    const rs = VS * PR, S = spiritSprite, B = 20;   // B : demi-taille de l'image, en unités du monde
+    if (S.rs !== rs) {
+      const px = Math.ceil(B * 2 * rs);
+      S.cv.width = S.cv.height = px;
+      const g = S.cv.getContext('2d'), keep = ctx;
+      g.setTransform(rs, 0, 0, rs, B * rs, B * rs);
+      ctx = g;
+      try {
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.fillStyle = '#fff'; ctx.lineWidth = 1;
+        for (let i = 0; i < 7; i++) {
+          const ang = -Math.PI / 2 + (i - 3) * 0.32;
+          const ex = Math.cos(ang) * 11, ey = -4 + Math.sin(ang) * 11;
+          ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(ex, ey); ctx.stroke();
+          ctx.beginPath(); ctx.arc(ex, ey, 1.6, 0, Math.PI * 2); ctx.fill();
+        }
+        glow(0, 0, 11, '255,255,220', 0.9);
+        ctx.fillStyle = '#fffbea';
+        ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#3a3040';
+        ctx.fillRect(-1.8, -0.8, 1, 1.4);
+        ctx.fillRect(0.9, -0.8, 1, 1.4);
+      } finally { ctx = keep; }
+      S.rs = rs;
+    }
+    const a0 = ctx.globalAlpha;
     for (const sp of spirits) {
       const a = clamp(sp.life / 1.2, 0, 1) * clamp((sp.max - sp.life) * 3, 0, 1);
-      const x = sp.x, y = sp.y + Math.sin(time * 3 + sp.ph) * 3;
-      ctx.save();
-      ctx.globalAlpha = a * 0.95;
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillStyle = '#fff';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 7; i++) {
-        const ang = -Math.PI / 2 + (i - 3) * 0.32 + Math.sin(time * 2 + sp.ph) * 0.08;
-        const ex = x + Math.cos(ang) * 11, ey = y - 4 + Math.sin(ang) * 11;
-        ctx.beginPath(); ctx.moveTo(x, y - 4); ctx.lineTo(ex, ey); ctx.stroke();
-        ctx.beginPath(); ctx.arc(ex, ey, 1.6, 0, Math.PI * 2); ctx.fill();
-      }
-      glow(x, y, 11, '255,255,220', 0.9);
-      ctx.fillStyle = '#fffbea';
-      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#3a3040';
-      ctx.fillRect(x - 1.8, y - 0.8, 1, 1.4);
-      ctx.fillRect(x + 0.9, y - 0.8, 1, 1.4);
-      ctx.restore();
+      if (a <= 0.01) continue;
+      // l'aigrette se balance : un léger glissement suffit (une image tournée coûte bien plus cher à poser)
+      const x = sp.x + Math.sin(time * 2 + sp.ph) * 1.2, y = sp.y + Math.sin(time * 3 + sp.ph) * 3;
+      ctx.globalAlpha = a0 * a * 0.95;
+      ctx.drawImage(S.cv, x - B, y - B, B * 2, B * 2);
     }
+    ctx.globalAlpha = a0;
   }
 
   // Grain de papier et vignettage, pour l'aspect peint
@@ -2729,17 +2767,22 @@
       c.width = cw; c.height = ch;
       const g = c.getContext('2d');
       // grain : des grains d'environ un pixel CSS, quelle que soit la densité de l'écran
-      const cell = Math.max(1, Math.round(PR)), gw = Math.ceil(cw / cell), gh = Math.ceil(ch / cell);
-      const small = document.createElement('canvas'); small.width = gw; small.height = gh;
-      const sg = small.getContext('2d'), img = sg.createImageData(gw, gh), d = img.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const n = Math.random() - 0.5, v = n > 0 ? 255 : 30;
-        d[i] = d[i + 1] = d[i + 2] = v;
-        d[i + 3] = Math.abs(n) * 18;
+      // (une tuile de 256 grains, répétée : avant, on tirait au hasard chaque grain de l'écran, ce qui
+      // figeait le jeu un instant à chaque changement de taille ou de finesse)
+      const cell = Math.max(1, Math.round(PR)), T = 256;
+      if (!paperCache.tile) {
+        const t = document.createElement('canvas'); t.width = t.height = T;
+        const tg = t.getContext('2d'), img = tg.createImageData(T, T), d = img.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const n = Math.random() - 0.5, v = n > 0 ? 255 : 30;
+          d[i] = d[i + 1] = d[i + 2] = v;
+          d[i + 3] = Math.abs(n) * 18;
+        }
+        tg.putImageData(img, 0, 0);
+        paperCache.tile = t;
       }
-      sg.putImageData(img, 0, 0);
       g.imageSmoothingEnabled = false;
-      g.drawImage(small, 0, 0, gw * cell, gh * cell);
+      for (let y = 0; y < ch; y += T * cell) for (let x = 0; x < cw; x += T * cell) g.drawImage(paperCache.tile, x, y, T * cell, T * cell);
       const v = g.createRadialGradient(cw / 2, ch / 2, Math.min(cw, ch) * 0.45, cw / 2, ch / 2, Math.max(cw, ch) * 0.75);
       v.addColorStop(0, 'rgba(40,30,40,0)');
       v.addColorStop(1, 'rgba(40,30,40,0.28)');
@@ -2844,20 +2887,22 @@
   }
 
   // Bulbe gonflé de pollution, qui palpite
+  const podSprite = (() => {
+    const cv = document.createElement('canvas'), S = 64, r = 30;
+    cv.width = cv.height = S;
+    const g = cv.getContext('2d');
+    g.translate(S / 2, S / 2);
+    const gr = g.createRadialGradient(r * 0.3, -r * 0.35, r * 0.1, 0, 0, r);
+    gr.addColorStop(0, '#f4ffb0'); gr.addColorStop(0.5, '#b6ff3b'); gr.addColorStop(1, '#5c8a1e');
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(60,90,20,0.6)'; g.lineWidth = r / 12;
+    g.beginPath(); g.moveTo(-r * 0.6, r * 0.2); g.quadraticCurveTo(0, -r * 0.2, r * 0.5, r * 0.5); g.stroke();
+    return cv;
+  })();
   function drawPod(c) {
-    const r = c.r * 0.62 * (1 + Math.sin(time * 4 + c.seed * 6) * 0.06);
-    ctx.save();
+    const r = c.r * 0.62 * (1 + Math.sin(time * 4 + c.seed * 6) * 0.06), k = r * 32 / 30;
     glow(c.x, c.y, r * 2.3, '182,255,59', 0.75);
-    const g = ctx.createRadialGradient(c.x + r * 0.3, c.y - r * 0.35, r * 0.1, c.x, c.y, r);
-    g.addColorStop(0, '#f4ffb0');
-    g.addColorStop(0.5, '#b6ff3b');
-    g.addColorStop(1, '#5c8a1e');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    ctx.strokeStyle = 'rgba(60,90,20,0.6)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(c.x - r * 0.6, c.y + r * 0.2); ctx.quadraticCurveTo(c.x, c.y - r * 0.2, c.x + r * 0.5, c.y + r * 0.5); ctx.stroke();
+    ctx.drawImage(podSprite, c.x - k, c.y - k, k * 2, k * 2);
   }
 
   // ---------- Racines incassables et pièges ----------
@@ -3154,8 +3199,11 @@
     }
   }
 
-  function drawWalls() {
-    const vis = cells.filter(c => c.alive && c.x + c.r > -30 && c.x - c.r < W + 30);
+  // Les colonnes ne bougent qu'en bloc : chacune est peinte une fois dans sa propre image, puis simplement recopiée.
+  // Elle n'est repeinte que si une de ses touffes casse ou qu'un rocher se fend. Seuls les éléments animés
+  // (lueur des bulbes, mûres nichées) sont dessinés en direct. Avant, les centaines de touffes de chaque mur
+  // étaient retracées à chaque image : c'était la plus grosse dépense du rendu.
+  function paintWalls(vis) {
     const soft = vis.filter(c => c.type === 'bramble' || c.type === 'pod' || c.type === 'berrycell');
     const roots = vis.filter(c => c.type === 'root');
     const lumpy = soft.flatMap(c => [[c.x, c.y, c.r], ...c.lumps.map(([dx, dy, lr]) => [c.x + dx, c.y + dy, lr])]);
@@ -3184,8 +3232,49 @@
     // Ronces : masse sombre, volume, reflets, puis tiges et épines
     shadeBlobs(lumpy);
     drawBrambleNetwork(soft);
-    for (const c of soft) if (c.type === 'pod') drawPod(c);
-    for (const c of soft) {
+  }
+  const WALL_PAD = 46;   // marge autour des touffes : ombre portée, épines, tiges
+  function bakeWall(grp, live, rs) {
+    if (!grp.cv) {   // cadre fixe, calculé sur la colonne entière : elle ne fait ensuite que perdre des touffes
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      for (const c of grp.cells) {
+        x0 = Math.min(x0, c.x - c.r - WALL_PAD); x1 = Math.max(x1, c.x + c.r + WALL_PAD);
+        y0 = Math.min(y0, c.y - c.r - WALL_PAD); y1 = Math.max(y1, c.y + c.r + WALL_PAD);
+      }
+      for (const c of grp.cells) c.gx = c.x - x0;   // position de chaque touffe dans l'image (la colonne est rigide)
+      grp.cv = document.createElement('canvas');
+      Object.assign(grp, { y0, w: x1 - x0, h: y1 - y0, rs: 0 });
+    }
+    const cv = grp.cv, pw = Math.max(1, Math.ceil(grp.w * rs)), ph = Math.max(1, Math.ceil(grp.h * rs));
+    if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+    const g = cv.getContext('2d'), X0 = live[0].x - live[0].gx;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, pw, ph);
+    g.setTransform(rs, 0, 0, rs, -X0 * rs, -grp.y0 * rs);
+    const screen = ctx; ctx = g;
+    try { paintWalls(live); } finally { ctx = screen; }
+  }
+  let wallMark = 0;
+  const wallGroups = [], wallLive = [], wallAnim = [];
+  function drawWalls() {
+    const rs = VS * PR;
+    wallMark++; wallGroups.length = 0; wallAnim.length = 0;
+    for (const c of cells) {
+      if (!c.alive || c.x + c.r < -30 || c.x - c.r > W + 30) continue;
+      const grp = c.grp;
+      if (grp.mark !== wallMark) { grp.mark = wallMark; wallGroups.push(grp); }
+      if (c.type === 'pod' || c.type === 'berrycell') wallAnim.push(c);
+    }
+    for (const grp of wallGroups) {
+      wallLive.length = 0; let hp = 0;
+      for (const c of grp.cells) if (c.alive) { wallLive.push(c); hp += c.hp; }
+      if (!grp.cv || grp.n !== wallLive.length || grp.hp !== hp || grp.rs !== rs) {
+        bakeWall(grp, wallLive, rs);
+        grp.n = wallLive.length; grp.hp = hp; grp.rs = rs;
+      }
+      ctx.drawImage(grp.cv, wallLive[0].x - wallLive[0].gx, grp.y0, grp.w, grp.h);
+    }
+    for (const c of wallAnim) if (c.type === 'pod') drawPod(c);
+    for (const c of wallAnim) {
       if (c.type !== 'berrycell') continue;
       const pulse = 0.5 + 0.5 * Math.sin(time * 4 + c.seed * 6);
       ctx.save();
@@ -3197,6 +3286,27 @@
     }
   }
 
+  const flowerSprites = new Map();   // une image par couleur de fleur, refaite si la finesse du rendu change
+  function flowerSprite(color, rs) {
+    let m = flowerSprites.get(color);
+    if (m && m.rs === rs) return m.cv;
+    if (!m) { m = { cv: document.createElement('canvas'), rs: 0 }; flowerSprites.set(color, m); }
+    const B = 16, px = Math.ceil(B * 2 * rs);
+    m.cv.width = m.cv.height = px;
+    const g = m.cv.getContext('2d');
+    g.setTransform(rs, 0, 0, rs, B * rs, B * rs);
+    g.strokeStyle = '#4caf50'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(0, 14); g.lineTo(0, 0); g.stroke();
+    g.fillStyle = color;
+    for (let k = 0; k < 5; k++) {
+      const a = k * Math.PI * 2 / 5;
+      g.beginPath(); g.ellipse(Math.cos(a) * 6, Math.sin(a) * 6, 5, 3.2, a, 0, Math.PI * 2); g.fill();
+    }
+    g.fillStyle = '#ffe066';
+    g.beginPath(); g.arc(0, 0, 3.2, 0, Math.PI * 2); g.fill();
+    m.rs = rs;
+    return m.cv;
+  }
   function drawFlower(f) {
     const s = Math.min(1, f.t * 2.5);
     const sway = Math.sin(time * 2 + f.seed * 6) * 0.15;
@@ -3209,15 +3319,7 @@
     ctx.globalAlpha = 1;
     ctx.rotate(sway);
     ctx.scale(s, s);
-    ctx.strokeStyle = '#4caf50'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(0, 14); ctx.lineTo(0, 0); ctx.stroke();
-    ctx.fillStyle = f.color;
-    for (let k = 0; k < 5; k++) {
-      const a = k * Math.PI * 2 / 5;
-      ctx.beginPath(); ctx.ellipse(Math.cos(a) * 6, Math.sin(a) * 6, 5, 3.2, a, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.fillStyle = '#ffe066';
-    ctx.beginPath(); ctx.arc(0, 0, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(flowerSprite(f.color, VS * PR), -16, -16, 32, 32);
     ctx.restore();
   }
 
@@ -3967,6 +4069,7 @@
   }
 
   function render() {
+    bakeBudget = 3;
     worldTransform();
     ctx.save();
     if (shakeT > 0) ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
@@ -4010,9 +4113,25 @@
   }
 
   // ---------- Boucle ----------
+  // Cadence : les navigateurs livrent les images à intervalles un peu irréguliers (16,1 puis 17,3 puis 16,6 ms…).
+  // Faire avancer le jeu de ces écarts bruts fait trembler le défilement. On apprend la cadence de l'écran
+  // (60, 90, 120 Hz…), on avance le jeu d'un nombre entier d'images d'écran, et l'écart qui reste est rattrapé en douceur.
+  const pace = { step: 0, debt: 0 };
+  function paceDt(raw) {
+    const P = pace;
+    if (!(raw > 0) || raw > 0.25) { P.debt = 0; return clamp(raw > 0 ? raw : 0, 0, 1 / 30); }   // pause, onglet caché…
+    if (!P.step || raw < P.step * 0.7) P.step = raw;         // première image, ou écran plus rapide que prévu
+    const n = Math.max(1, Math.round(raw / P.step));          // combien d'images d'écran se sont écoulées
+    if (n <= 3) P.step += (raw / n - P.step) * 0.03;          // la cadence s'affine au fil des images
+    let dt = n * P.step;
+    P.debt += raw - dt;
+    if (Math.abs(P.debt) > P.step) { dt += P.debt; P.debt = 0; }   // trop d'écart (image très en retard) : on se recale
+    else { const k = P.debt * 0.08; dt += k; P.debt -= k; }
+    return clamp(dt, 0, 1 / 30);
+  }
   function loop(t) {
     const raw = (t - lastTime) / 1000 || 0;
-    const dt = Math.min(raw, 1 / 30);
+    const dt = paceDt(raw);
     lastTime = t;
     watchPerf(raw);
     update(dt);
