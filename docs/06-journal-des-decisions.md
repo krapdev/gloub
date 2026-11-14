@@ -130,9 +130,35 @@ Les choix de conception, dans l'ordre où ils ont été pris.
 - **Application installable (PWA)** : jouable hors ligne, avec une icône dessinée par le jeu et des polices embarquées. L'écran titre est adapté au téléphone en paysage.
 - **Documents d'étude** rangés dans `docs/`.
 
+## 18. La pollution met la pression
+
+- **Constat** : pendant 2 à 3 minutes, le premier plan ne changeait qu'à 100 %. La guérison se voyait au loin, mais pas là où joue Gloub, et rien ne poussait à purifier plutôt qu'à esquiver.
+- **Départ dans un brouillard de pollution**, épais sur le décor et les bords, léger dans le couloir de jeu, avec une bulle d'air clair autour de Gloub. Il se lève au palier des 25 %.
+- **Le premier plan garde la trace du joueur** : buissons, objets du sol et herbes refleurissent là où il purifie ; la haie du sol devient de la mousse (sans danger) sous le pied des colonnes purifiées.
+- **Les bulbes deviennent la grosse cible** : +1,2 % de guérison, une onde qui purifie les ronces voisines, 50 points ; un peu plus nombreux (6 % au lieu de 4,5 %).
+- **Pression** : une colonne qui sort sans être purifiée fait perdre jusqu'à 1 %, sans jamais repasser sous un palier gagné.
+- **Premier plan plus présent** (retour de jeu) : guérison locale deux fois plus généreuse, gerbe de pétales quand un élément bascule, buissons couronnés de fleurs par-dessus le brouillard, une fleur sur chaque brin d'herbe, mousse sous les six rangées du bas.
+- **Méga-onde en un seul tir** : la forme d'esprit ne dure plus 8 s (7 ondes géantes) ; Gloub concentre la sève, libère une seule onde géante, deux fois plus haute (la moitié de l'écran), puis redescend à « Couronné ». Contre le Cœur, ce tir retire 80 PV par bulbe (au lieu de 25 par onde).
+- **À régler en jouant** : la durée d'un paysage (visée : toujours 2 à 3 minutes), la force de la pression et le rebond sans danger sur la mousse.
+
+## 19. Le son : une musique qui pousse avec le monde
+
+- **Constat** : le jeu était muet.
+- **Tout est synthétisé** (Web Audio, aucun fichier) : le jeu reste un seul fichier, et la musique suit exactement l'état du monde.
+- **La musique raconte la guérison** : sous le smog, une nappe étouffée, le souffle de la pollution et le cœur de la forêt ; un instrument de plus à chaque palier (basse, cordes, flûte) ; le majeur et les carillons quand le paysage est guéri. Le filtre s'ouvre à mesure que le brouillard se lève.
+- **Le joueur joue la mélodie** : chaque ronce purifiée sonne une note de kalimba, calée sur la mesure, dans la gamme du moment.
+- **Bouton pour couper le son** en bas à gauche (et touche M), choix mémorisé.
+- Détails dans [Son](08-son.md).
+
+## 20. La colonne en fleurs
+
+- **Constat** : la pression punit l'esquive, mais rien ne récompensait une colonne bien nettoyée.
+- **Une colonne purifiée à 80 % (à la sève) guérit d'un coup** : cascade de fleurs du sol vers le haut, rochers qui s'effritent (passage libre), liane fleurie qui encadre le passage, +250 points, +2 %, glissando de harpe.
+- **Signal** : à partir de 50 %, la colonne s'illumine en vert.
+- **À régler en jouant** : le seuil de 80 % (assez exigeant pour rester un exploit, assez accessible pour arriver plusieurs fois par partie).
+
 ## Questions ouvertes
 
 - Réintroduire des **ennemis plus variés** : corbeaux de goudron, ou retour des pièges ?
 - Des **événements de décor**, comme un immeuble qui s'effondre ?
 - Les **paysages suivants** (ville en ruine, décharge et usine) et un **second voyage** plus difficile après la victoire.
-- Du **son** : le jeu est muet pour l'instant.

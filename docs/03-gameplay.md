@@ -57,17 +57,18 @@ La puissance de Gloub se lit **sur lui** : à chaque mûre, l'esprit de la forê
 
 ### La méga-onde
 
-- Au niveau maximum, une **concentration** se forme sur Gloub : des étincelles convergent et un anneau se resserre. Au bout de 1,1 s, une **onde géante** part tout droit.
-- Elle balaie une bande de 170 px de haut sur toute la largeur de l'écran. Elle purifie toutes les ronces, rochers et bulbes qu'elle croise, et tue les moustiques.
+- Au niveau maximum, une **concentration** se forme sur Gloub : des étincelles convergent et un anneau se resserre ; une jauge dorée sous la jauge « Éveil » se remplit et clignote juste avant le tir. Au bout de 1,1 s, une **onde géante** part tout droit (« Méga-onde ! »).
+- Elle balaie une bande de **la moitié de l'écran en hauteur** sur toute sa largeur. Elle purifie toutes les ronces, rochers et bulbes qu'elle croise, et tue les moustiques.
 - Elle **traverse les racines sans les casser** : on doit toujours passer par l'ouverture.
 - Un flash blanc accompagne le tir.
-- **Elle est temporaire** : elle dure 8 s (une jauge dorée sous la jauge « Éveil » montre le temps restant et clignote à la fin), puis l'esprit se rendort et Gloub redescend à la grande onde. Une mûre gobée pendant la méga-onde la recharge à 8 s.
-- Elle se répète toutes les 1,1 s pendant ce temps.
+- **Un seul tir** : après la méga-onde, Gloub redescend aussitôt à « Couronné » (grande onde). Il faut une nouvelle mûre pour la recharger. Avant, elle durait 8 s et tirait toutes les 1,1 s : le jeu se jouait tout seul.
 
 ### Salive et sève : arracher ou purifier
 
 - Une ronce cassée à la **salive** est simplement arrachée : peu de points, peu de guérison.
-- Une ronce cassée à la **sève** est **purifiée** : une fleur pousse à sa place, deux petits esprits s'envolent et le monde guérit davantage.
+- Une ronce cassée à la **sève** est **purifiée** : une fleur pousse à sa place, deux petits esprits s'envolent et le monde guérit davantage. Le premier plan juste derrière en profite aussi (voir [la trace du joueur](02-direction-artistique.md)).
+- **La colonne en fleurs** : quand **80 % des ronces d'une colonne** ont été purifiées à la sève (les bulbes comptent, la salive non), elle guérit d'un coup, de bas en haut. Les ronces restantes fleurissent, **les rochers s'effritent en mousse** (la colonne devient franchissable) et une **liane fleurie** pousse à sa place, avec deux bouquets qui encadrent le passage. Les racines restent. Bonus : **+250 points, +2 %**, et la colonne ne fait plus reculer la forêt. À partir de 50 %, la colonne **s'illumine en vert** pour signaler qu'elle est à portée. Le nombre de colonnes guéries s'affiche en fin de partie.
+- Une ronce purifiée au **bas d'une colonne** (les six rangées du bas) fait refleurir la haie du sol en mousse : **on peut y rebondir sans se piquer**.
 
 ## Les chocs
 
@@ -87,7 +88,7 @@ La puissance de Gloub se lit **sur lui** : à chaque mûre, l'esprit de la forê
 
 Une partie a maintenant un but : guérir la forêt, puis vaincre la source de sa maladie.
 
-1. **La forêt étouffée** : annoncée au départ (« Guéris-la à 100 % »). Elle est guérie quand la jauge « Monde guéri » atteint 100 %, soit environ 2 à 3 minutes de jeu.
+1. **La forêt étouffée** : annoncée au départ (« Perce le brouillard, guéris-la à 100 % »), dans un brouillard de pollution qui se lève à 25 %. Elle est guérie quand la jauge « Monde guéri » atteint 100 %, soit environ 2 à 3 minutes de jeu.
    En chemin, la guérison se voit par **paliers** (25, 50, 75 %), annoncés par un bandeau et une vague de lumière, et marqués sur la jauge (voir la [direction artistique](02-direction-artistique.md)).
 2. **Le calme** : plus aucune colonne n'apparaît. Un bandeau annonce « La forêt respire ! » (+500), le paysage refleurit et des aigrettes s'envolent pendant 3,5 s.
 3. **Le Cœur de ronce** : le boss arrive par la droite et le défilement ralentit presque jusqu'à l'arrêt (voir ci-dessous).
@@ -104,7 +105,7 @@ Une partie a maintenant un but : guérir la forêt, puis vaincre la source de sa
 - **Dégâts sur un bulbe** :
   - une onde de sève retire sa pleine valeur (4) ;
   - la salive retire 4 fois moins ;
-  - une méga-onde retire 25.
+  - une méga-onde retire 80 à chaque bulbe qu'elle traverse (`MEGA_BULB_DMG`).
 - **Points de vie** : 180 pour chacun des 4 bulbes autour, 300 pour le bulbe central.
 - **Le reste du cœur** absorbe les ondes : il faut viser les bulbes.
 
@@ -129,21 +130,31 @@ Une partie a maintenant un but : guérir la forêt, puis vaincre la source de sa
 | Ronce purifiée (sève) | 25 | +0,3 % |
 | Ronce arrachée (salive) | 10 | +0,04 % |
 | Rocher cassé | 15 | — |
-| Bulbe crevé | 5 | — |
+| Bulbe crevé (sa mûre et son onde en plus) | 50 | +1,2 % |
 | Mûre gobée | 5 | — |
 | Moustique abattu | 10 | — |
 | Paysage guéri | 500 | — |
 | Bulbe du Cœur crevé | 300 | +4 % |
 | Cœur de ronce vaincu | 2000 | jusqu'à 100 % |
+| Colonne guérie (80 % de ses ronces purifiées) | 250 | +2 % |
+| Colonne sortie sans être purifiée | — | jusqu'à −1 % |
 
-Les deux taux de guérison sont réglés en haut du module des paysages (`HEAL_SAP`, `HEAL_SALIVA`). Le record est gardé dans le navigateur.
+Les taux sont réglés en haut du module des paysages (`HEAL_SAP`, `HEAL_SALIVA`, `HEAL_POD`, `POD_WAVE_R`, `PRESSURE`, `COLUMN_HEAL_AT`, `HEAL_COLUMN`, `COLUMN_SCORE`). Le record est gardé dans le navigateur.
+
+### La pollution qui presse
+
+- Quand une colonne sort de l'écran, elle est jugée : la jauge perd **1 % × la part de ses ronces restées en place** (une colonne intacte coûte 1 %, une colonne à moitié purifiée 0,5 %). Les rochers ne comptent pas.
+- Le brouillard s'épaissit en même temps et le bord gauche pulse en violet.
+- **On ne perd jamais un palier gagné** : la jauge ne descend pas sous 25, 50 ou 75 % une fois ce palier atteint.
+- Il n'y a de pression que pendant le voyage (ni pendant le calme, ni pendant le combat).
+- Réglage à affiner en jouant : l'idée est qu'esquiver sans tirer fasse reculer la forêt, sans rendre la partie punitive.
 
 ## Les murs
 
 - Une colonne de ronces arrive toutes les 1,7 à 2,4 s. Chacune laisse un **passage**, plus ou moins haut, plus ou moins décalé.
 - **Ronce** : se casse en 1 coup.
 - **Rocher moussu** : demande 4 coups à la salive, 1 coup à la sève.
-- **Bulbe** : une ronce gonflée et lumineuse. Crevé, il libère une **mûre** qui file vers Gloub. Il y en a environ un demi par colonne, loin du passage. C'est le **choix risqué** du jeu : s'écarter du passage pour aller percer un bulbe, ou passer en sécurité.
+- **Bulbe** : une ronce gonflée de poison vert. Crevé, il libère une **mûre** qui file vers Gloub, guérit le monde de **1,2 %** (autant que 4 ronces) et lâche une **onde** qui purifie toutes les ronces dans un rayon de 78 px, fait refleurir le premier plan alentour et la haie du sol en dessous. Il y en a un peu plus d'un demi par colonne (6 % des touffes loin du passage). C'est le **choix risqué** du jeu : s'écarter du passage pour aller le percer, ou passer en sécurité.
 - **Passage bouché** : parfois, un rideau de ronces fines ferme le passage. Il faut le percer.
 - **Murs de racines** : des racines-mères brunes **incassables**. Seuls les bords du passage sont en ronces. Le passage y est toujours large (au moins 160 px de haut, plus de 200 px de couloir en pratique) et jamais bouché.
 - Une **mûre gratuite** flotte au début de chaque partie, pour goûter tout de suite à la sève.

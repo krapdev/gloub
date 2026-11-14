@@ -42,6 +42,7 @@ Quand il y a du réseau, l'application charge toujours la dernière version de `
 - **Maintenir** : Gloub monte de plus en plus vite.
 - **Relâcher** : il redescend.
 - Les **ondes** partent toutes seules, droit devant.
+- **M** (ou le bouton rond en bas à gauche) : couper ou remettre le son.
 
 ## Règles
 
@@ -49,8 +50,9 @@ Quand il y a du réseau, l'application charge toujours la dernière version de `
 - Les **bulbes** lumineux nichés dans les ronces libèrent des **mûres**. Chaque mûre gobée renforce les ondes :
   salive → sève → sève ×2 → grande onde → **méga-onde**.
 - Les **moustiques de suie** arrivent en nuées (annoncées par des chevrons rouges). Tous les 8 moustiques abattus, l'un d'eux est **libéré** de la corruption et aide Gloub à tirer.
-- Chaque mûre **éveille** Gloub d'un niveau, et ses ondes avec lui : marqué, nervuré, couronné, puis **forme d'esprit** (méga-onde). Chaque choc lui fait perdre un niveau. La puissance ne baisse pas avec le temps, sauf la méga-onde qui dure 8 secondes. Chaque évolution est annoncée à l'écran. Sans aucune force, un choc fait chuter Gloub.
-- Purifier les ronces fait refleurir le monde : le ciel, les arbres et le décor se transforment.
+- Chaque mûre **éveille** Gloub d'un niveau, et ses ondes avec lui : marqué, nervuré, couronné, puis **forme d'esprit** (méga-onde). Chaque choc lui fait perdre un niveau. La puissance ne baisse pas avec le temps ; seule la forme d'esprit est éphémère : elle libère une seule méga-onde géante, puis Gloub redevient couronné. Chaque évolution est annoncée à l'écran. Sans aucune force, un choc fait chuter Gloub.
+- Une colonne purifiée à 80 % **guérit d'un coup** : elle fleurit, ses rochers s'effritent et une liane fleurie pousse à sa place (+250).
+- Purifier les ronces fait refleurir le monde : le ciel, les arbres et le décor se transforment. La musique aussi : chaque ronce purifiée joue une note, et un instrument s'ajoute à chaque palier ([Son](docs/08-son.md)).
 - **But** : guérir la forêt à 100 % (« Monde guéri »), puis affronter le **Cœur de ronce**, la source de la maladie, et crever ses 5 bulbes. Si Gloub tombe pendant le combat, on reprend au début du combat.
 
 ## Fichiers

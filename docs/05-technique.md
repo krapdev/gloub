@@ -16,6 +16,7 @@
 | Murs | `spawnWall()`, cellules (`makeCell`), racines, pièges. |
 | Tir | `spit()`, niveaux (`LEVELS`), méga-onde (`fireBeam`, `updateMegas`). |
 | Ennemis | Moustiques (`updateBugs`, `drawBug`). |
+| Son | Module `SND` : musique et bruitages synthétisés (Web Audio), appelé à chaque image par `SND.tick()`. Voir [Son](08-son.md). |
 | Personnage | Projection 3D de Gloub (`proj`, `sph`), ailes (`wingShape`), `drawGloub()`. |
 | Rendu | `render()`, qui dessine dans l'ordre : ciel, collines, sol, 3 plans de décor + objets, brume, murs, bonus, ennemis, ondes, Gloub, particules, premier plan, papier. Puis l'interface du jeu (`drawHUD`). |
 

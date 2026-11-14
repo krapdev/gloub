@@ -106,6 +106,18 @@
   @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
   /* Installer l'application : petit bouton papier, n'apparaît que si le navigateur le propose */
+  /* Bouton du son : petit rond de papier en bas à gauche, toujours accessible, même en jouant */
+  #sound {
+    position: fixed; z-index: 5; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom));
+    width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; padding: 0; cursor: pointer;
+    background: var(--paper); border: 2.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink); opacity: 0.88;
+    touch-action: manipulation;
+  }
+  #sound svg { width: 24px; height: 24px; }
+  #sound .x { display: none; }
+  #sound.off .x { display: inline; }
+  #sound.off .waves { display: none; }
+  #sound:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
   #install {
     font: 800 14px 'Nunito', ui-rounded, system-ui, sans-serif; color: var(--ink);
     background: var(--paper); border: 2.5px solid var(--ink); border-radius: 999px; box-shadow: 0 3px 0 var(--ink);
@@ -161,6 +173,8 @@
     .stats { font-size: 14px; gap: 4px 16px; }
     #ov-cta { margin-top: 2px; padding: 6px 20px; font-size: 16px; box-shadow: 0 4px 0 var(--ink); }
     #install { font-size: 12.5px; padding: 4px 12px 4px 9px; }
+    #sound { width: 34px; height: 34px; }
+    #sound svg { width: 20px; height: 20px; }
     #install svg { width: 15px; height: 15px; }
     .ios-hint { font-size: 11.5px; }
   }
@@ -204,7 +218,7 @@
               <circle cx="11" cy="22" r="3.4"/><circle cx="17" cy="22" r="3.4"/>
             </g>
             <g fill="#e9d2ff"><circle cx="12" cy="11" r="1"/><circle cx="18" cy="11" r="1"/><circle cx="15" cy="16" r="1"/><circle cx="21" cy="16" r="1"/><circle cx="18" cy="21" r="1"/></g>
-          </svg></span><span>Crève les <b>bulbes</b> lumineux des ronces : ils libèrent des <b>mûres</b>. Chaque mûre <b>éveille</b> un peu plus Gloub et renforce ses ondes, jusqu'à sa <b>forme d'esprit</b> (méga-onde, quelques secondes).</span></li>
+          </svg></span><span>Crève les <b>bulbes</b> lumineux des ronces : leur poison s'en va et ils libèrent des <b>mûres</b>. Chaque mûre <b>éveille</b> un peu plus Gloub et renforce ses ondes, jusqu'à sa <b>forme d'esprit</b>, qui libère une <b>méga-onde</b> géante.</span></li>
           <li><span class="icon"><svg viewBox="0 0 30 30" aria-hidden="true">
             <path d="M3 14 L11 15" stroke="#241a2e" stroke-width="1.8" stroke-linecap="round"/>
             <ellipse cx="20" cy="16" rx="7" ry="4.2" fill="#8fd62a" stroke="#241a2e" stroke-width="2" transform="rotate(18 20 16)"/>
@@ -227,6 +241,13 @@
     </div>
   </div>
 </div>
+
+<!-- Bouton du son : en dehors de l'écran de jeu, pour qu'un appui dessus ne fasse pas voler Gloub -->
+<button id="sound" type="button" aria-label="Couper le son" title="Son (touche M)"><svg viewBox="0 0 24 24" aria-hidden="true">
+  <path d="M3.5 9.5 H7.5 L12.5 5.5 V18.5 L7.5 14.5 H3.5 Z" fill="#241a2e" stroke="#241a2e" stroke-width="1.6" stroke-linejoin="round"/>
+  <g class="waves" fill="none" stroke="#4f8a30" stroke-width="2.2" stroke-linecap="round"><path d="M15.5 9.5 Q17.5 12 15.5 14.5"/><path d="M18 7 Q22 12 18 17"/></g>
+  <g class="x" fill="none" stroke="#c0425f" stroke-width="2.4" stroke-linecap="round"><path d="M16 9.5 L21 14.5 M21 9.5 L16 14.5"/></g>
+</svg></button>
 
 <script>
 (() => {
@@ -366,7 +387,7 @@
   let score = 0, distance = 0, health = 0, time = 0, lastTime = 0;
   // Guérison visible, par étapes : le monde change par paliers bien lisibles (25, 50, 75, 100 %)
   // plutôt que de glisser imperceptiblement. vis suit la guérison réelle arrondie au palier inférieur.
-  const LOOK = { vis: 0, smog: 1, sky: 0, far: 0, mid: 0, near: 0 };
+  const LOOK = { vis: 0, smog: 1, sky: 0, far: 0, mid: 0, near: 0, fog: 1 };
   let lookStep = 0, bloomWave = null;
   let traps = [], beams = [], megas = [], flashT = 0;
   // Moustiques libérés : chaque moustique abattu remplit une jauge ; pleine, un moustique purifié rejoint Gloub et l'aide
@@ -379,6 +400,11 @@
   // Voyage : paysage en cours, phase (travel : on le guérit ; calm : il refleurit ; boss : le Cœur de ronce)
   let stage = 0, phase = 'travel', phaseT = 0, boss = null, scroll = 1, runTime = 0, freedTotal = 0;
   let checkpoint = null, retryBoss = false;   // si Gloub tombe pendant le combat, on reprend au début du combat
+  // Pollution qui presse : colonnes en cours (jugées quand elles sortent de l'écran), haie du sol guérie par endroits
+  // (intervalles en coordonnées du monde), ondes des bulbes crevés, bancs de brouillard, pulsation de la pollution qui gagne
+  let walls = [], groundHeal = [], rings = [], fogPuffs = [], pollutePulse = 0, groundDirty = true, glows = [];
+  // Colonnes guéries : lianes fleuries qui poussent à leur place, touffes qui fleurissent en cascade, compteur de la partie
+  let lianes = [], cascade = [], columnsHealed = 0, quietPurify = false;
 
   // ---------- Décor en parallaxe, peint en volume ----------
   // Chaque élément est peint une fois en deux versions (monde malade / monde guéri),
@@ -797,16 +823,460 @@
   }
 
 
+  // ---------- Son : une musique qui pousse avec le monde ----------
+  // Tout est synthétisé avec Web Audio, sans fichier : le jeu reste un seul fichier léger.
+  // - La musique suit la guérison. Au départ, sous le smog : une nappe étouffée (filtre presque fermé), le souffle de
+  //   la pollution et le cœur de la forêt qui bat, lentement. Chaque palier ajoute un instrument : 25 % la basse et le
+  //   shaker, 50 % les cordes (et les oiseaux), 75 % la flûte. Le paysage guéri et la victoire passent en majeur, avec
+  //   des carillons. Le filtre s'ouvre à mesure que le brouillard se lève : la musique « respire » avec le monde.
+  // - Chaque ronce purifiée joue une note de kalimba, calée sur la mesure et prise dans la gamme du moment :
+  //   des purifications en chaîne montent (puis redescendent) en arpège. C'est le joueur qui joue la mélodie.
+  // - Les bruitages sont doux, placés à gauche ou à droite selon l'endroit où ils se produisent.
+  // Le contexte audio ne démarre qu'au premier appui (règle des navigateurs). Le choix « son coupé » est mémorisé.
+  const SND = (() => {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    let ac = null, on = true;
+    try { on = localStorage.getItem('gloub-son') !== 'off'; } catch (e) { /* stockage indisponible */ }
+    let master, musicIn, musicLP, notesLP, sfxBus, verb, smogGain, noiseBuf;
+    const layers = {}, target = {}, liveUntil = {}, last = {};
+    let voices = 0, lastCut = 0, lastSmog = -1, duckT = -9;
+    const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+
+    // Harmonie en ré : mineur pendant le voyage, majeur quand le paysage est guéri, mineur tendu face au Cœur.
+    // [basse, accord] par mesure, quatre mesures en boucle.
+    const PROG = {
+      minor: [[38, [50, 57, 62, 65, 69]], [34, [46, 53, 58, 62, 65]], [41, [48, 53, 57, 60, 65]], [36, [48, 55, 60, 64, 67]]],
+      bright: [[38, [50, 57, 62, 66, 69]], [35, [47, 54, 59, 62, 66]], [43, [50, 55, 59, 62, 67]], [45, [52, 57, 61, 64, 69]]],
+      boss: [[38, [50, 57, 62, 65, 69]], [34, [46, 53, 58, 62, 65]], [43, [50, 55, 58, 62, 67]], [45, [52, 57, 61, 64, 69]]],
+    };
+    const SCALE = {   // gammes pentatoniques : toutes leurs notes sonnent bien ensemble
+      minor: [62, 65, 67, 69, 72, 74, 77, 79, 81, 84, 86],
+      bright: [62, 64, 66, 69, 71, 74, 76, 78, 81, 83, 86],
+      boss: [62, 65, 67, 69, 72, 74, 77, 79, 81, 84, 86],
+    };
+    const BPM = 76, S16 = 60 / BPM / 4, S32 = S16 / 2;
+    // Flûte : rythmes par mesure ([début, durée] en doubles croches)
+    const FLUTE = [[[0, 6], [6, 2], [8, 8]], [[2, 4], [6, 4], [10, 6]], [[0, 4], [4, 4], [8, 8]], [[0, 10], [12, 4]]];
+    const LAYERS = ['pad', 'heart', 'pulse', 'strings', 'flute', 'bells', 'menu', 'ostinato'];
+
+    const won = () => !!(boss && boss.dying >= 1.8);
+    function mode() {
+      if (won() || phase === 'calm') return 'bright';
+      if (phase === 'boss' && boss) return 'boss';
+      return 'minor';
+    }
+    // Quels instruments jouent, selon l'état du monde
+    function wanted() {
+      const play = state === 'play', v = LOOK.vis, m = mode(), w = won();
+      return {
+        pad: state === 'over' && !w ? 0.55 : 1,
+        heart: (play && m === 'minor') ? 1 : state === 'menu' ? 0.5 : 0,
+        pulse: (play && m === 'minor' && v >= 0.25) || phase === 'calm' || w ? 1 : 0,
+        strings: (play && (v >= 0.5 || m !== 'minor')) || w ? 1 : 0,
+        flute: (play && m === 'minor' && v >= 0.75) || phase === 'calm' || w ? 1 : 0,
+        bells: phase === 'calm' || w ? 1 : 0,
+        menu: state === 'menu' ? 1 : 0,
+        ostinato: play && m === 'boss' && boss.stage >= 2 && boss.dying < 0 ? 1 : 0,
+      };
+    }
+    const live = k => target[k] > 0 || ac.currentTime < (liveUntil[k] || 0);
+
+    // ----- Mise en place -----
+    function init() {
+      if (!on || !AC) return;
+      if (ac) { unlock(); return; }
+      try { ac = new AC(); } catch (e) { ac = null; return; }
+      const sr = ac.sampleRate;
+      const gain = (v, to) => { const g = ac.createGain(); g.gain.value = v; if (to) g.connect(to); return g; };
+      const lowpass = (f, to) => { const b = ac.createBiquadFilter(); b.type = 'lowpass'; b.frequency.value = f; b.Q.value = 0.6; if (to) b.connect(to); return b; };
+      master = gain(1.7);
+      const comp = ac.createDynamicsCompressor();   // tient les crêtes (méga-onde, gong) sans écraser la musique
+      comp.threshold.value = -10; comp.knee.value = 6; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
+      master.connect(comp); comp.connect(ac.destination);
+      // Réverbération : une queue de bruit qui s'éteint (2,4 s), pour l'espace d'une vallée
+      const len = Math.floor(sr * 2.4), ir = ac.createBuffer(2, len, sr);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+      verb = ac.createConvolver(); verb.buffer = ir; verb.connect(gain(0.5, master));
+      // Musique : couches → (creux quand Gloub est touché) → filtre du smog → sortie
+      const musicOut = gain(0.55, master); musicOut.connect(gain(0.45, verb));
+      musicLP = lowpass(900, musicOut);
+      musicIn = gain(1, musicLP);
+      for (const k of LAYERS) { layers[k] = gain(0, musicIn); target[k] = 0; }
+      // Notes du joueur : un filtre à part, moins fermé, pour qu'elles restent nettes même dans le brouillard
+      const notesOut = gain(0.8, master); notesOut.connect(gain(0.35, verb));
+      notesLP = lowpass(2600, notesOut);
+      sfxBus = gain(0.8, master); sfxBus.connect(gain(0.12, verb));
+      // Bruit blanc (souffles, chocs) et bruit brun (le souffle sourd de la pollution)
+      noiseBuf = ac.createBuffer(1, sr * 2, sr);
+      const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+      const brown = ac.createBuffer(1, sr * 4, sr), bd = brown.getChannelData(0);
+      let lastB = 0; for (let i = 0; i < bd.length; i++) { lastB = (lastB + 0.02 * (Math.random() * 2 - 1)) / 1.02; bd[i] = lastB * 3.5; }
+      const smog = ac.createBufferSource(); smog.buffer = brown; smog.loop = true;
+      const smogLP = lowpass(420); smogGain = gain(0, master);
+      const wind = ac.createOscillator(), windAmt = gain(180); wind.frequency.value = 0.07; wind.connect(windAmt); windAmt.connect(smogLP.frequency);
+      smog.connect(smogLP); smogLP.connect(smogGain); smog.start(); wind.start();
+      unlock();
+    }
+    function unlock() { if (ac && on && ac.state !== 'running' && !document.hidden) ac.resume().catch(() => {}); }
+    function ready() { return ac && on && ac.state === 'running'; }
+    function toggle() {
+      on = !on;
+      try { localStorage.setItem('gloub-son', on ? 'on' : 'off'); } catch (e) { /* ignoré */ }
+      if (on) init(); else if (ac) ac.suspend().catch(() => {});
+      return on;
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (!ac) return;
+      if (document.hidden) ac.suspend().catch(() => {}); else unlock();
+    });
+
+    // ----- Briques de son -----
+    function route(n, pan, dest) {
+      if (pan && ac.createStereoPanner) { const p = ac.createStereoPanner(); p.pan.value = clamp(pan, -1, 1); n.connect(p); p.connect(dest); }
+      else n.connect(dest);
+    }
+    function track(src) { voices++; src.onended = () => { voices--; }; }
+    function busy(dest) { return dest === sfxBus && voices > 70; }   // trop de sons à la fois : on saute les bruitages
+    // Une note : oscillateur, glissando éventuel, attaque puis déclin, filtre et panoramique en option
+    function tone({ f, f2, gl, type = 'sine', t, a = 0.005, d = 0.3, g = 0.1, dest = sfxBus, pan = 0, detune = 0, lp = 0 }) {
+      if (busy(dest)) return;
+      const o = ac.createOscillator(), e = ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + (gl || (a + d) * 0.9));
+      if (detune) o.detune.value = detune;
+      e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(g, t + a); e.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+      o.connect(e);
+      let n = e;
+      if (lp) { const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; e.connect(fl); n = fl; }
+      route(n, pan, dest);
+      o.start(t); o.stop(t + a + d + 0.05); track(o);
+    }
+    function noise({ t, d = 0.1, g = 0.1, f = 1000, f2, q = 1, type = 'bandpass', a = 0.003, dest = sfxBus, pan = 0 }) {
+      if (busy(dest)) return;
+      const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), e = ac.createGain();
+      s.buffer = noiseBuf; s.loop = true;
+      fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f, t);
+      if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + a + d);
+      e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(g, t + a); e.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+      s.connect(fl); fl.connect(e); route(e, pan, dest);
+      s.start(t, Math.random() * 1.5); s.stop(t + a + d + 0.05); track(s);
+    }
+    // Kalimba : une lame qui tinte (fondamentale + harmonique métallique très brève)
+    function kalimba(m, t, g, dest, pan = 0, d = 1.1) {
+      const f = mtof(m);
+      tone({ f, t, a: 0.004, d, g, dest, pan });
+      tone({ f: f * 5.4, t, a: 0.002, d: 0.09, g: g * 0.3, dest, pan });
+    }
+    // Nappe et cordes : notes longues qui se fondent d'une mesure à l'autre
+    function swell(f, t, dur, g, type, dest, detune = 0, att = 0.9, lfo) {
+      const o = ac.createOscillator(), e = ac.createGain();
+      o.type = type; o.frequency.value = f; o.detune.value = detune;
+      if (lfo) lfo.connect(o.detune);
+      e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(g, t + att);
+      e.gain.setValueAtTime(g, t + dur - 0.2); e.gain.linearRampToValueAtTime(0, t + dur + 1.2);
+      o.connect(e); e.connect(dest);
+      o.start(t); o.stop(t + dur + 1.3); track(o);
+    }
+    function pad(ch, t, dur) {
+      const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 1400; fl.connect(layers.pad);
+      for (const m of ch.slice(0, 4)) {
+        swell(mtof(m), t, dur, 0.045, 'triangle', fl);
+        swell(mtof(m), t, dur, 0.016, 'sawtooth', fl, m % 2 ? 7 : -7);
+      }
+    }
+    function strings(ch, t, dur) {
+      const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = 2400; fl.connect(layers.strings);
+      const vib = ac.createOscillator(), amt = ac.createGain(); vib.frequency.value = 5.2; amt.gain.value = 9; vib.connect(amt);
+      vib.start(t); vib.stop(t + dur + 1.3);
+      for (const m of ch.slice(1)) swell(mtof(m + 12), t, dur, 0.022, 'sawtooth', fl, 0, 1.4, amt);
+    }
+    function flute(m, t, dur) {
+      const f = mtof(m), o = ac.createOscillator(), o2 = ac.createOscillator(), e = ac.createGain(), h = ac.createGain();
+      const vib = ac.createOscillator(), vg = ac.createGain();
+      o.frequency.value = f; o2.type = 'triangle'; o2.frequency.value = f * 2; h.gain.value = 0.12;
+      vib.frequency.value = 5.5; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.006, t + 0.35);
+      vib.connect(vg); vg.connect(o.frequency);
+      const end = t + Math.max(0.2, dur - 0.04);
+      e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.07, t + 0.07); e.gain.setValueAtTime(0.06, end); e.gain.linearRampToValueAtTime(0, end + 0.25);
+      o.connect(e); o2.connect(h); h.connect(e); e.connect(layers.flute);
+      for (const x of [o, o2, vib]) { x.start(t); x.stop(end + 0.3); }
+      track(o);
+      noise({ t, d: 0.12, g: 0.012, f: f * 2, q: 2, dest: layers.flute });   // souffle
+    }
+    const kick = (t, g, dest, f0 = 110) => tone({ f: f0, f2: 42, gl: 0.12, t, a: 0.004, d: 0.32, g, dest });
+
+    // ----- La partition, pas à pas (double croche) -----
+    let nextT = 0, step = 0, gridBase = 0, melody = 7;
+    const fits = (m, ch) => ch.every(c => { const d = Math.abs((m % 12) - (c % 12)); return Math.min(d, 12 - d) !== 1; });
+    function playStep(n, t) {
+      const m = mode(), bar = Math.floor(n / 16), s = n % 16, [root, ch] = PROG[m][bar % 4];
+      const barLen = 16 * S16;
+      if (s === 0) pad(ch, t, barLen);
+      if (live('heart') && (s === 0 || s === 2 || s === 8 || s === 10)) kick(t, s % 8 ? 0.13 : 0.22, layers.heart, 95);   // boum-boum
+      if (live('pulse')) {
+        if (s === 0 || s === 8) {
+          tone({ f: mtof(root), t, a: 0.01, d: 1.3, g: 0.14, dest: layers.pulse });
+          tone({ f: mtof(root + 12), t, a: 0.01, d: 0.9, g: 0.05, type: 'triangle', dest: layers.pulse });
+        }
+        if (s === 4 || s === 12) kick(t, 0.12, layers.pulse);
+        if (s % 2 === 0) noise({ t, d: 0.045, g: s % 4 === 2 ? 0.03 : 0.014, f: 6500, type: 'highpass', dest: layers.pulse });
+      }
+      if (s === 0 && live('strings')) strings(ch, t, barLen);
+      if (live('flute')) {
+        const pat = FLUTE[bar % 4], hitN = pat.find(p => p[0] === s);
+        if (hitN) {
+          const sc = SCALE[m].filter(x => x >= 69);
+          melody = clamp(melody + pick([-2, -1, -1, 1, 1, 2]), 0, sc.length - 1);
+          let note = sc[melody];
+          if (bar % 4 === 3 && hitN === pat[pat.length - 1] || !fits(note, ch)) note = ch.filter(x => x >= 57).map(x => x + 12).reduce((a, b) => Math.abs(b - note) < Math.abs(a - note) ? b : a);
+          flute(note, t, hitN[1] * S16);
+        }
+      }
+      if (live('bells') && s % 2 === 0) {
+        const arp = [ch[2] + 12, ch[3] + 12, ch[4] + 12, ch[2] + 24, ch[4] + 12, ch[3] + 12, ch[2] + 12, ch[4]];
+        kalimba(arp[s / 2], t, 0.05, layers.bells, (s / 8) - 1, 1.4);
+      }
+      if (live('menu') && s % 4 === 0 && Math.random() < 0.4) kalimba(pick(SCALE.minor.slice(3)), t, 0.05, layers.menu, rand(-0.5, 0.5), 1.6);
+      if (live('ostinato') && s % 2 === 0) tone({ f: mtof(root + 12), t, a: 0.005, d: 0.18, g: 0.05, type: 'sawtooth', lp: 700, dest: layers.ostinato });
+    }
+    function schedule() {
+      const now = ac.currentTime;
+      if (nextT < now - 0.1) { nextT = now + 0.06; gridBase = nextT - step * S16; }   // retour de pause : on se recale
+      while (nextT < now + 0.16) { playStep(step, nextT); step++; nextT += S16; }
+    }
+
+    // Appelé à chaque image : instruments, filtre du smog, souffle de la pollution, oiseaux
+    function tick(dt) {
+      if (!ready()) return;
+      const now = ac.currentTime, W2 = wanted();
+      for (const k of LAYERS) {
+        if (W2[k] === target[k]) continue;
+        if (!W2[k]) liveUntil[k] = now + 5;
+        target[k] = W2[k];
+        layers[k].gain.setTargetAtTime(W2[k], now, k === 'menu' || k === 'ostinato' ? 0.6 : 1.6);
+      }
+      const fog = state === 'over' && !won() ? 1 : LOOK.fog;
+      const cut = 700 * Math.pow(18, 1 - fog);   // 700 Hz dans le smog → 12 kHz quand l'air est pur
+      if (Math.abs(cut - lastCut) > 25) {
+        musicLP.frequency.setTargetAtTime(cut, now, 0.5);
+        notesLP.frequency.setTargetAtTime(Math.max(2600, cut), now, 0.5);
+        lastCut = cut;
+      }
+      const sg = state === 'over' ? 0 : 0.07 * LOOK.fog;
+      if (Math.abs(sg - lastSmog) > 0.002) { smogGain.gain.setTargetAtTime(sg, now, 0.8); lastSmog = sg; }
+      if (((state === 'play' && LOOK.sky > 0.5 && phase !== 'boss') || won()) && Math.random() < dt * 0.3) chirp();
+      schedule();
+    }
+
+    // ----- Bruitages -----
+    const pan = x => clamp((x / W) * 2 - 1, -1, 1) * 0.7;
+    const PX = () => pan(W * PLAYER_X_RATIO);
+    function gate(k, gap) { const now = ac.currentTime; if (now - (last[k] || -9) < gap) return false; last[k] = now; return true; }
+
+    // Purification : une note de kalimba, posée sur la prochaine triple croche libre (une note par case)
+    let runIdx = 0, runT = -9;
+    const slots = new Map();
+    function purify(x) {
+      if (!ready()) return;
+      const now = ac.currentTime;
+      let k = Math.ceil((now + 0.012 - gridBase) / S32), ok = false;
+      for (let i = 0; i < 4; i++, k++) if (!slots.has(k)) { slots.set(k, 1); ok = true; break; }
+      if (!ok) return;
+      if (slots.size > 64) slots.delete(slots.keys().next().value);
+      const t = gridBase + k * S32, m = mode(), sc = SCALE[m], ch = PROG[m][Math.floor(k / 32) % 4][1];
+      runIdx = now - runT < 0.7 ? runIdx + 1 : 2;   // en chaîne, les notes montent ; après une pause, on repart en bas
+      runT = now;
+      const per = 2 * (sc.length - 1), p = runIdx % per;
+      let i = p < sc.length ? p : per - p;
+      if (!fits(sc[i], ch)) i = i + 1 < sc.length ? i + 1 : i - 1;
+      kalimba(sc[i], t, 0.11, notesLP, pan(x));
+    }
+    function chirp() {   // oiseaux qui reviennent
+      const t = ac.currentTime + 0.02, p = rand(-0.8, 0.8), n = 2 + ((Math.random() * 3) | 0), f = rand(2600, 3600);
+      for (let i = 0; i < n; i++) tone({ f: f * rand(0.95, 1.08), f2: f * 1.3, t: t + i * rand(0.06, 0.09), a: 0.005, d: 0.05, g: 0.02, pan: p });
+    }
+    const API = {
+      init, unlock, toggle, tick, purify,
+      isOn: () => on,
+      flap(k) { if (!ready() || !gate('flap', 0.05)) return; noise({ t: ac.currentTime, d: 0.09, g: 0.045 * k, f: 700, f2: 1400, q: 0.8, pan: PX() }); },
+      shot(lvl) {   // petit « ping » d'écholocation, très discret
+        if (!ready() || !gate('shot', 0.1)) return;
+        const f = [2300, 1900, 1800, 1400, 1400][lvl] * rand(0.97, 1.03);
+        tone({ f, f2: f * 0.7, t: ac.currentTime, a: 0.002, d: 0.06, g: 0.016, pan: PX() });
+      },
+      hit(type, x) {   // une onde qui touche sans détruire
+        if (!ready() || !gate('hit', 0.06)) return;
+        const t = ac.currentTime;
+        if (type === 'bulb') tone({ f: 320, f2: 180, t, d: 0.08, g: 0.06, pan: pan(x) });
+        else noise({ t, d: 0.05, g: 0.05, f: 500, q: 3, pan: pan(x) });
+      },
+      snap(x) {   // ronce arrachée à la salive
+        if (!ready() || !gate('snap', 0.04)) return;
+        const t = ac.currentTime;
+        noise({ t, d: 0.07, g: 0.06, f: 1800, q: 1.5, pan: pan(x) });
+        tone({ f: 420, f2: 260, t, d: 0.06, g: 0.03, type: 'triangle', pan: pan(x) });
+      },
+      crack(x) {   // rocher brisé
+        if (!ready() || !gate('crack', 0.05)) return;
+        const t = ac.currentTime;
+        noise({ t, d: 0.18, g: 0.12, f: 1200, type: 'lowpass', pan: pan(x) });
+        tone({ f: 140, f2: 60, t, d: 0.15, g: 0.12, pan: pan(x) });
+      },
+      pod(x) {   // bulbe toxique crevé : un « bloop », une éclaboussure et trois clochettes
+        if (!ready()) return;
+        const t = ac.currentTime, m = mode(), ch = PROG[m][Math.floor(((t - gridBase) / S16) / 16) % 4][1];
+        tone({ f: 760, f2: 170, t, d: 0.22, g: 0.14, pan: pan(x) });
+        noise({ t, d: 0.3, g: 0.04, f: 3000, type: 'highpass', pan: pan(x) });
+        [ch[2], ch[3], ch[4]].forEach((n, i) => kalimba(n + 24, t + 0.04 + i * 0.05, 0.07, notesLP, pan(x), 1.6));
+      },
+      eat(lvlUp, fruit) {   // « gloups », puis un petit arpège si Gloub s'éveille d'un niveau
+        if (!ready()) return;
+        const t = ac.currentTime, p = PX();
+        tone({ f: 240, f2: 600, t, d: 0.08, g: 0.12, pan: p });
+        tone({ f: 300, f2: 720, t: t + 0.07, d: 0.08, g: 0.1, pan: p });
+        if (lvlUp > 0) {
+          const sc = SCALE[mode()], base = 2 + lvlUp;
+          for (let i = 0; i < (lvlUp === 4 ? 5 : 3); i++) kalimba(sc[Math.min(sc.length - 1, base + i * 2)], t + 0.12 + i * 0.07, 0.08, notesLP, p, 1.3);
+          if (lvlUp === 4) noise({ t: t + 0.1, a: 0.4, d: 0.5, g: 0.03, f: 3000, f2: 9000, type: 'highpass' });
+        }
+        if (fruit) for (let i = 0; i < 4; i++) tone({ f: 2400 + i * 400, t: t + 0.1 + i * 0.04, d: 0.12, g: 0.025, pan: p });
+      },
+      hurt() {   // aïe : un choc sourd, une plainte qui descend, et la musique se creuse un instant
+        if (!ready()) return;
+        const t = ac.currentTime, p = PX();
+        tone({ f: 520, f2: 150, t, d: 0.35, g: 0.07, type: 'sawtooth', lp: 1400, pan: p });
+        noise({ t, d: 0.2, g: 0.15, f: 400, type: 'lowpass', pan: p });
+        if (t - duckT > 0.3) {
+          duckT = t;
+          musicIn.gain.cancelScheduledValues(t); musicIn.gain.setValueAtTime(1, t);
+          musicIn.gain.linearRampToValueAtTime(0.35, t + 0.05); musicIn.gain.linearRampToValueAtTime(1, t + 1.2);
+        }
+      },
+      die() {   // la chute : quatre notes qui retombent
+        if (!ready()) return;
+        const t = ac.currentTime;
+        noise({ t, d: 0.3, g: 0.16, f: 300, type: 'lowpass', pan: PX() });
+        [74, 69, 65, 62, 57].forEach((n, i) => kalimba(n, t + 0.15 + i * 0.2, 0.08, notesLP, PX(), 1.6));
+      },
+      pop(x) {   // moustique abattu, graine détruite
+        if (!ready() || !gate('pop', 0.04)) return;
+        const t = ac.currentTime;
+        tone({ f: 1100, f2: 380, t, d: 0.05, g: 0.05, pan: pan(x) });
+        noise({ t, d: 0.03, g: 0.02, f: 4000, type: 'highpass', pan: pan(x) });
+      },
+      ally() {   // un moustique libéré : quatre clochettes qui montent
+        if (!ready()) return;
+        const t = ac.currentTime;
+        [74, 78, 81, 86].forEach((n, i) => kalimba(n, t + i * 0.08, 0.07, notesLP, PX(), 1.4));
+      },
+      swarm() {   // une nuée approche, par la droite : bourdonnement
+        if (!ready() || !gate('swarm', 0.4)) return;
+        const t = ac.currentTime, lfo = ac.createOscillator(), am = ac.createGain(), trem = ac.createGain(), e = ac.createGain(), fl = ac.createBiquadFilter();
+        lfo.frequency.value = 30; am.gain.value = 0.5; trem.gain.value = 0.5; lfo.connect(am); am.connect(trem.gain);   // battement d'ailes : 0 → 1, 30 fois par seconde
+        fl.type = 'bandpass'; fl.frequency.value = 1100; fl.Q.value = 1.2;
+        e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(0.045, t + 0.25); e.gain.linearRampToValueAtTime(0, t + 0.95);
+        for (const f of [150, 157]) { const o = ac.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.connect(fl); o.start(t); o.stop(t + 1); track(o); }
+        fl.connect(trem); trem.connect(e); route(e, 0.6, sfxBus); lfo.start(t); lfo.stop(t + 1);
+      },
+      pollute() {   // la ronce gagne : un grondement sourd, à gauche
+        if (!ready() || !gate('pollute', 0.5)) return;
+        const t = ac.currentTime;
+        for (const m of [38, 39]) tone({ f: mtof(m), f2: mtof(m) * 0.85, t, a: 0.15, d: 0.9, g: 0.07, type: 'sawtooth', lp: 380, pan: -0.7 });
+      },
+      milestone() {   // palier : un souffle qui monte, puis une cascade de clochettes
+        if (!ready()) return;
+        const t = ac.currentTime;
+        noise({ t, a: 0.6, d: 0.8, g: 0.03, f: 2000, f2: 8000, type: 'highpass' });
+        SCALE[mode()].slice(5).reverse().forEach((n, i) => kalimba(n, t + 0.5 + i * 0.07, 0.06, notesLP, 0.6 - i * 0.2, 1.8));
+      },
+      cleared() {   // paysage guéri : une grande montée en majeur
+        if (!ready()) return;
+        const t = ac.currentTime;
+        noise({ t, a: 0.8, d: 1, g: 0.035, f: 1500, f2: 9000, type: 'highpass' });
+        SCALE.bright.forEach((n, i) => kalimba(n, t + 0.2 + i * 0.06, 0.06, notesLP, -0.7 + i * 0.14, 2));
+      },
+      megaCharge() {   // la sève se concentre : un souffle et une note qui montent
+        if (!ready()) return;
+        const t = ac.currentTime, d = BEAM_CHARGE;
+        noise({ t, a: d, d: 0.1, g: 0.05, f: 300, f2: 3500, q: 4, pan: PX() });
+        tone({ f: 220, f2: 880, gl: d, t, a: d, d: 0.1, g: 0.03, type: 'triangle', pan: PX() });
+      },
+      megaFire() {   // la méga-onde part : un grand souffle grave et un accord brillant
+        if (!ready()) return;
+        const t = ac.currentTime, ch = PROG[mode()][0][1];
+        tone({ f: 95, f2: 35, gl: 0.4, t, a: 0.005, d: 0.7, g: 0.3 });
+        noise({ t, d: 0.5, g: 0.12, f: 900, type: 'lowpass' });
+        [ch[2], ch[3], ch[4]].forEach((n, i) => kalimba(n + 12, t + 0.02 * i, 0.06, notesLP, 0, 1.8));
+      },
+      column(x) {   // colonne guérie : un glissando de harpe sur toute la gamme, puis un accord qui tinte
+        if (!ready()) return;
+        const t = ac.currentTime, m = mode(), ch = PROG[m][Math.floor(((t - gridBase) / S16) / 16) % 4][1];
+        noise({ t, a: 0.25, d: 0.9, g: 0.03, f: 1500, f2: 7000, type: 'highpass', pan: pan(x) });
+        SCALE[m].forEach((n, i) => kalimba(n, t + i * 0.035, 0.055, notesLP, pan(x), 1.6));
+        [ch[2], ch[3], ch[4]].forEach(n => kalimba(n + 12, t + 0.45, 0.06, notesLP, pan(x), 2.2));
+      },
+      bossEnter() {   // le Cœur de ronce arrive : grondement de la terre
+        if (!ready()) return;
+        const t = ac.currentTime;
+        noise({ t, a: 1.5, d: 2, g: 0.2, f: 160, type: 'lowpass', pan: 0.5 });
+        tone({ f: 41, t, a: 1.5, d: 2, g: 0.12, pan: 0.5 });
+      },
+      heart(k) {   // le battement du Cœur : boum-boum, à droite
+        if (!ready()) return;
+        const t = ac.currentTime;
+        kick(t, 0.32 * k, sfxBus, 95);
+        noise({ t, d: 0.1, g: 0.05 * k, f: 200, type: 'lowpass', pan: 0.5 });
+      },
+      rootWarn() {   // la racine grince pendant l'alerte, puis claque comme un fouet
+        if (!ready()) return;
+        const t = ac.currentTime;
+        tone({ f: 55, f2: 48, t, a: 0.8, d: 0.3, g: 0.06, type: 'sawtooth', lp: 500, pan: 0.3 });
+        noise({ t: t + ROOT_WARN, d: 0.25, g: 0.14, f: 2500, f2: 600, q: 1.5, pan: 0 });
+        tone({ f: 300, f2: 60, t: t + ROOT_WARN, d: 0.2, g: 0.1 });
+      },
+      seeds(n) {   // le Cœur se gonfle (glouglous), puis crache ses graines
+        if (!ready()) return;
+        const t = ac.currentTime;
+        for (let i = 0; i < 6; i++) { const f = rand(180, 420); tone({ f, f2: f * 1.6, t: t + i * 0.11, d: 0.06, g: 0.05, pan: 0.5 }); }
+        for (let i = 0; i < n; i++) tone({ f: 500, f2: 200, t: t + 0.7 + i * 0.05, d: 0.1, g: 0.07, pan: 0.4 });
+      },
+      bulbBurst(x) {   // un bulbe du Cœur crevé : un gong et des clochettes
+        if (!ready()) return;
+        const t = ac.currentTime;
+        tone({ f: mtof(43), t, a: 0.005, d: 2.2, g: 0.12, pan: pan(x) });
+        tone({ f: mtof(55) * 2.76, t, a: 0.005, d: 1, g: 0.03, pan: pan(x) });
+        tone({ f: 760, f2: 170, t, d: 0.22, g: 0.12, pan: pan(x) });
+        [74, 79, 81, 86].forEach((n, i) => kalimba(n, t + 0.05 + i * 0.06, 0.06, notesLP, pan(x), 1.6));
+      },
+      bossStage() {   // le Cœur change de phase : un accord dissonant
+        if (!ready()) return;
+        const t = ac.currentTime;
+        for (const m of [38, 39, 50]) tone({ f: mtof(m), t, a: 0.01, d: 0.6, g: 0.07, type: 'sawtooth', lp: 900, pan: 0.4 });
+        noise({ t, d: 0.3, g: 0.1, f: 800, type: 'lowpass', pan: 0.4 });
+      },
+      bloom() {   // le Cœur fleurit : un gong, un souffle de lumière et une cascade en majeur
+        if (!ready()) return;
+        const t = ac.currentTime;
+        tone({ f: mtof(38), t, a: 0.005, d: 3, g: 0.15 });
+        noise({ t, a: 0.3, d: 1.5, g: 0.04, f: 2000, f2: 10000, type: 'highpass' });
+        [...SCALE.bright, 88, 90, 93].forEach((n, i) => kalimba(n, t + 0.1 + i * 0.05, 0.065, notesLP, -0.8 + i * 0.12, 2.2));
+      },
+    };
+    return API;
+  })();
+
   // ---------- Partie ----------
   function reset() {
     score = 0; distance = 0; health = 0; LOOK.vis = 0; lookStep = 0; bloomWave = null; updateLook(0);
-    player = { y: H * 0.45, vy: 0, tilt: 0, flap: 0, mouth: 0, belly: 0, alive: true, inv: 0, charge: 0, gulp: 0, chew: 0, wide: 0, megaT: 0 };
+    player = { y: H * 0.45, vy: 0, tilt: 0, flap: 0, mouth: 0, belly: 0, alive: true, inv: 0, charge: 0, gulp: 0, chew: 0, wide: 0 };
     beams = [];
     traps = [];
     bugs = []; swarms = []; swarmTimer = 4; allies = []; freed = 0; megas = []; flashT = 0;
     spits = []; cells = []; pickups = []; flowers = []; particles = []; texts = [];
     motes = makeMotes(); layers = makeLayers(); props = makeProps(); fore = makeFore();
     clouds = makeClouds(); winds = makeWinds(); spirits = [];
+    walls = []; groundHeal = []; rings = []; fogPuffs = makeFogPuffs(); pollutePulse = 0; groundDirty = true; glows = [];
+    lianes = []; cascade = []; columnsHealed = 0;
     shootTimer = 0; columnTimer = 1.4; shakeT = 0;
     stage = 0; phase = 'travel'; phaseT = 0; boss = null; scroll = 1; runTime = 0; freedTotal = 0;
   }
@@ -819,7 +1289,7 @@
     state = 'play';
     overlay.style.display = 'none';
     if (retry) {   // Gloub était tombé pendant le combat : on reprend au début du combat, avec un peu de sève
-      score = checkpoint.score; runTime = checkpoint.time; freedTotal = checkpoint.freed;
+      score = checkpoint.score; runTime = checkpoint.time; freedTotal = checkpoint.freed; columnsHealed = checkpoint.cols || 0;
       player.belly = checkpoint.belly; health = 1;
       startBoss();
     } else {
@@ -838,8 +1308,8 @@
     if (boss && boss.dying >= 0) return;   // le Cœur est vaincu : plus rien ne peut blesser Gloub pendant la floraison
     if (sapLevel() === 0) { die(); return; }
     player.belly = Math.max(0, player.belly - BELLY_PER_PICKUP);
-    player.megaT = 0;
     announceLevel(-1);
+    SND.hurt();
     const gone = allies.find(a => !a.leaving);   // sous le choc, un moustique allié prend peur et s'envole
     if (gone) gone.leaving = true;
     player.inv = 1.4;
@@ -878,6 +1348,7 @@
       }
     }
     burst(b.x, b.y, '#3a3238', 6, 'dot');
+    SND.pop(b.x);
     particles.push({ x: b.x, y: b.y, vx: rand(-20, 20), vy: -45, life: 1.2, max: 1.2, color: '#ffffff', r: 2.6, rot: 0, vr: 0, shape: 'dot', nograv: true });
   }
   function updateBugs(dt, speed, px, diff) {
@@ -885,6 +1356,7 @@
       swarmTimer -= dt;
       if (swarmTimer <= 0) {   // une nuée est annoncée sur le bord droit avant d'entrer
         swarms.push({ y: rand(70, H - GROUND_H - 70), warn: 0.9, n: 3 + ((Math.random() * (2 + diff * 3)) | 0) });
+        SND.swarm();
         swarmTimer = rand(4.5, 7) - diff * 2.5;
       }
     }
@@ -974,15 +1446,22 @@
   // Une partie est un voyage : on guérit le paysage (« Monde guéri » à 100 %), il refleurit, puis vient
   // le Cœur de ronce, la source de la maladie. Pour l'instant, un seul paysage : la forêt.
   const STAGES = [
-    { name: 'La forêt étouffée', sub: 'Guéris-la à 100 %', cleared: 'La forêt respire !' },
+    { name: 'La forêt étouffée', sub: 'Perce le brouillard, guéris-la à 100 %', cleared: 'La forêt respire !' },
   ];
   const CALM_TIME = 3.5;          // secondes de calme quand un paysage est guéri
   // Guérison apportée par une ronce purifiée (sève) ou simplement arrachée (salive).
   // Réglée pour qu'un paysage dure environ 2 à 3 minutes.
   const HEAL_SAP = 0.003, HEAL_SALIVA = 0.0004;
+  // Un bulbe toxique crevé : le poison concentré s'en va (guérison forte, et son onde purifie les ronces autour)
+  const HEAL_POD = 0.012, POD_WAVE_R = 78;
+  // Pression : une colonne qui sort de l'écran sans être purifiée fait regagner du terrain à la ronce
+  // (perte proportionnelle à la part de ronces restées en place ; jamais en dessous du dernier palier atteint)
+  const PRESSURE = 0.01;
+  // Colonne guérie : quand 80 % de ses ronces ont été purifiées à la sève, elle fleurit d'un coup
+  const COLUMN_HEAL_AT = 0.8, HEAL_COLUMN = 0.02, COLUMN_SCORE = 250;
   const BOSS_R = 150;             // rayon du Cœur de ronce (unités logiques)
   // Bulbes du Cœur, en fractions du rayon : quatre autour, et le bulbe central (protégé jusqu'à la phase 3)
-  // (rayon en unités, points de vie : une onde de sève en retire 4, la salive 0,25, une méga-onde 25)
+  // (rayon en unités, points de vie : une onde de sève en retire 4, la salive 0,25, une méga-onde MEGA_BULB_DMG)
   const BOSS_BULBS = [[-0.66, -0.34, 20, 180], [-0.84, 0.16, 20, 180], [-0.5, 0.56, 20, 180], [-0.12, -0.58, 20, 180], [-0.3, 0.06, 27, 300]];
 
   // Les paliers de la guérison et ce qu'ils libèrent
@@ -1004,10 +1483,16 @@
     LOOK.far = LOOK.sky;
     LOOK.mid = smooth((v - 0.5) / 0.25);         // 75 % : la ville, les grands arbres, le sol
     LOOK.near = smooth((v - 0.75) / 0.25);       // 100 % : les buissons et le premier plan
+    // Brouillard de pollution : épais au départ, il s'éclaircit à mesure qu'on guérit, se lève au palier des 25 %,
+    // puis reste un voile léger qui s'épaissit de nouveau quand la ronce regagne du terrain
+    const fogTarget = LOOK.smog * (1 - 0.45 * smooth(health / 0.25)) + (1 - LOOK.smog) * 0.2 * (1 - health);
+    LOOK.fog += clamp(fogTarget - LOOK.fog, -dt * 0.6, dt * 0.6);
+    if (dt === 0) LOOK.fog = fogTarget;
     if (step > lookStep && state === 'play' && phase === 'travel' && MILESTONES[step]) {
       const m = MILESTONES[step];
       announce = { txt: m.txt, sub: m.sub, color: '#bff5a0', up: true, t: 0, dur: 2.4 };
       bloomWave = { t: 0 };
+      SND.milestone();
     }
     lookStep = step;
     if (bloomWave) {   // une vague de lumière balaie l'écran et sème des pétales
@@ -1021,6 +1506,181 @@
     }
   }
 
+  // ---------- Le premier plan guérit là où Gloub purifie ----------
+  // Chaque ronce purifiée à la sève refleurit un peu le décor juste derrière elle (buissons, objets du sol,
+  // hautes herbes) : le premier plan garde la trace de ce que fait le joueur, sans attendre le palier des 100 %.
+  // Chaque élément bascule d'un coup quand il a reçu assez de sève (pure ≥ 1) : malade ou guéri, jamais entre les deux.
+  function healFront(cx, reach, amount) {
+    const near = layers[2], sc = (distance * near.speed) % PERIOD;
+    const feed = (o, k, x, y, w) => {   // quand l'élément bascule, il éclate en fleurs
+      const was = o.pure || 0;
+      o.pure = was + amount * k;
+      if (was < 1 && o.pure >= 1) bloomPop(x, y, w);
+    };
+    for (let rep = -1; rep <= Math.ceil(W / PERIOD) + 1; rep++) {
+      for (const it of near.items) {
+        const x = it.x + rep * PERIOD - sc + it.w / 2;
+        if (x > -60 && x < W + 60 && Math.abs(x - cx) < reach + it.w * 0.4) feed(it, 1, x, groundY(near.speed, x) - it.h * 0.6, it.w * 0.4);
+      }
+    }
+    for (const p of props) {
+      const x = screenX(p.X, p.s);
+      if (p.s >= 0.6 && Math.abs(x - cx) < reach + 40) feed(p, 1.5, x, groundY(p.s, x) - 30 * p.s, 30 * p.s);
+    }
+    for (const f of fore) {
+      const x = screenX(f.X, FORE_S);
+      if (Math.abs(x - cx) < reach + 30) feed(f, 2, x, H - f.h * 0.7, 20);
+    }
+  }
+  // Floraison : une gerbe de pétales, de feuilles et deux aigrettes qui s'envolent
+  function bloomPop(x, y, w) {
+    for (let i = 0; i < 14; i++) {
+      const life = rand(0.9, 1.6);
+      particles.push({ x: x + rand(-w, w), y: y + rand(-10, 10), vx: rand(-70, 50), vy: rand(-170, -60), life, max: life,
+        color: pick(['#ffc6dd', '#ff9db5', '#fff1a8', '#ffffff', '#8fd96f', '#bff5a0']), r: rand(2.6, 4.4), rot: rand(0, 6), vr: rand(-5, 5), shape: 'leaf' });
+    }
+    for (let i = 0; i < 2; i++) {
+      const life = rand(2.5, 4);
+      spirits.push({ x: x + rand(-w, w) * 0.5, y, vx: rand(-50, -10), vy: rand(-45, -20), life, max: life, ph: Math.random() * 6 });
+    }
+    glows.push({ x, y, r: w + 40, t: 0 });
+  }
+  function updateFrontHeal(dt) {
+    const grow = o => { if ((o.pure || 0) >= 1 && (o.hl || 0) < 1) o.hl = Math.min(1, (o.hl || 0) + dt * 1.6); };
+    // Les buissons du premier plan reviennent en boucle : sorti par la gauche, un buisson guéri laisse place
+    // à la terre encore malade qui arrive (il redevient malade avant de réapparaître à droite)
+    const near = layers[2], sc = (distance * near.speed) % PERIOD;
+    for (const it of near.items) {
+      const u = ((it.x - sc + it.w + 120) % PERIOD + PERIOD) % PERIOD;
+      if (it.lastU !== undefined && u > it.lastU + PERIOD / 2) { it.pure = 0; it.hl = 0; }
+      it.lastU = u;
+    }
+    for (const it of near.items) grow(it);
+    for (const p of props) grow(p);
+    for (const f of fore) grow(f);
+  }
+  // Haie du sol : purifier le pied d'une colonne (ou crever un bulbe) la fait refleurir en mousse, qui ne pique plus
+  function addGroundHeal(x0, x1) {
+    const a = distance + x0, b = distance + x1;
+    groundHeal.push([a, b]);
+    groundHeal.sort((u, v) => u[0] - v[0]);
+    const out = [];
+    for (const iv of groundHeal) {
+      const last = out[out.length - 1];
+      if (last && iv[0] <= last[1] + 6) last[1] = Math.max(last[1], iv[1]); else out.push([iv[0], iv[1]]);
+    }
+    groundHeal = out.filter(iv => iv[1] > distance - 200);
+    groundDirty = true;
+    for (let i = 0; i < 4; i++) burst(rand(x0, x1), H - GROUND_H + 4, pick(['#7be07b', '#bff5a0', '#ffc6dd']), 1, 'leaf');
+  }
+  function groundHealed(X) {
+    for (const [a, b] of groundHeal) if (X >= a && X <= b) return true;
+    return false;
+  }
+  // ---------- La colonne en fleurs ----------
+  // Purifier 80 % des ronces d'une colonne (à la sève) la guérit d'un coup : de bas en haut, les ronces restantes
+  // fleurissent, les rochers s'effritent en mousse (la colonne devient franchissable) et une liane fleurie pousse
+  // à sa place, en encadrant le passage. Les racines, elles, restent : elles sont le terrain.
+  function countPure(t) {
+    const grp = t.grp;
+    if (!grp || !grp.soft || grp.healed) return;
+    grp.pure++;
+    if (grp.pure >= grp.soft * COLUMN_HEAL_AT) healColumn(grp);
+  }
+  function healColumn(grp) {
+    grp.healed = true;
+    columnsHealed++;
+    const bot = H - GROUND_H, mid = grp.spine[Math.floor(grp.spine.length / 2)], cx = mid[0] - distance;
+    for (const c of grp.cells) {   // la floraison monte depuis le sol
+      if (c.alive && c.type !== 'root') cascade.push({ c, at: time + 0.05 + clamp((bot - c.y) / bot, 0, 1) * 0.6 });
+    }
+    // La liane : un tronçon par morceau de colonne (elle s'interrompt au passage)
+    const segs = [];
+    let seg = [];
+    for (let i = 0; i < grp.spine.length; i++) {
+      if (i && grp.spine[i][1] - grp.spine[i - 1][1] > ROW_H * 1.6) { segs.push(seg); seg = []; }
+      seg.push(grp.spine[i]);
+    }
+    segs.push(seg);
+    lianes.push({ segs: segs.filter(s => s.length > 1), t: 0, seed: Math.random() });
+    score += COLUMN_SCORE;
+    health = Math.min(1, health + HEAL_COLUMN);
+    texts.push({ x: cx, y: H * 0.42, txt: 'Colonne guérie !', color: '#bff5a0', life: 1.6, big: true });
+    floatText(cx, H * 0.42 + 28, '+' + COLUMN_SCORE, '#ffe27a');
+    glows.push({ x: cx, y: H * 0.5, r: 160, t: 0 });
+    healFront(cx, 160, 1);
+    addGroundHeal(cx - 60, cx + 60);
+    SND.column(cx);
+  }
+  function updateCascade() {
+    if (!cascade.length) return;
+    quietPurify = true;   // les notes de la cascade sont remplacées par le glissando de la colonne
+    for (const e of cascade) {
+      if (time < e.at) continue;
+      e.done = true;
+      const c = e.c;
+      if (!c.alive) continue;
+      if (c.type === 'stone') {   // le rocher s'effrite en mousse et en pétales
+        c.alive = false;
+        burst(c.x, c.y, '#7d9a55', 6, 'leaf'); burst(c.x, c.y, '#ffc6dd', 4, 'leaf');
+        flowers.push({ x: c.x, y: c.y, t: 0, seed: Math.random(), color: pick(['#ff8fb8', '#ffd166', '#ffffff', '#c9a0ff']) });
+      } else damageCell(c, { kind: 'sap', dmg: 99, x: c.x, y: c.y });
+    }
+    quietPurify = false;
+    cascade = cascade.filter(e => !e.done);
+  }
+  // La liane fleurie : tige bicolore, feuilles, fleurs qui se balancent ; elle pousse depuis le sol en 0,9 s
+  const LIANE_COLORS = ['#ff8fb8', '#ffd166', '#ffffff', '#c9a0ff', '#ffc6dd'];
+  function drawLianes() {
+    if (!lianes.length) return;
+    const rs = VS * PR, bot = H - GROUND_H;
+    for (const L of lianes) {
+      const grow = smooth(L.t / 0.9), reach = bot - grow * (bot + 20);   // hauteur atteinte par la pousse
+      for (const seg of L.segs) {
+        const pts = seg.filter(([, y]) => y >= reach).map(([X, y], i) => [X - distance + Math.sin(time * 1.6 + y * 0.03 + L.seed * 6) * 3, y]);
+        if (pts.length < 2) continue;
+        for (const [w, c] of [[6, '#2f5a34'], [2.6, '#8fd96f']]) {
+          ctx.strokeStyle = c; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+        }
+        pts.forEach(([x, y], i) => {
+          const sd = i % 2 ? 1 : -1;
+          ctx.fillStyle = i % 3 ? '#5fae5a' : '#7cc874';
+          ctx.beginPath(); ctx.ellipse(x + sd * 9, y + 2, 8, 3.6, sd * 0.6, 0, Math.PI * 2); ctx.fill();
+          if (i % 2 === 0) {
+            const sz = 20 + ((i * 7 + L.seed * 10) % 6);
+            ctx.drawImage(flowerSprite(LIANE_COLORS[(i + ((L.seed * 10) | 0)) % LIANE_COLORS.length], rs), x - sz / 2 - sd * 4, y - sz / 2, sz, sz);
+          }
+        });
+        // Bouquets aux bords du passage : la porte fleurie
+        for (const [x, y] of [pts[0], pts[pts.length - 1]]) {
+          if (y < 20 || y > bot - 20) continue;
+          glow(x, y, 34, '255,240,190', 0.5);
+          for (let k = 0; k < 3; k++) ctx.drawImage(flowerSprite(LIANE_COLORS[k + 1], rs), x - 14 + (k - 1) * 12, y - 14 + (k % 2) * 6, 28, 28);
+        }
+      }
+    }
+  }
+
+  // Une colonne sort de l'écran : plus elle a gardé de ronces, plus la pollution regagne du terrain
+  function judgeWall(grp) {
+    if (phase !== 'travel' || state !== 'play' || grp.healed) return;
+    let soft = 0, left = 0;
+    for (const c of grp.cells) if (c.type === 'bramble' || c.type === 'pod' || c.type === 'berrycell') { soft++; if (c.alive) left++; }
+    if (!soft) return;
+    const before = health;
+    health = Math.max(lookStep / 4, health - PRESSURE * left / soft);
+    const lost = before - health;
+    if (lost > 0.002) {
+      pollutePulse = Math.min(1, pollutePulse + 0.4 + lost * 40);
+      SND.pollute();
+      floatText(46, H * 0.5, '−' + (Math.round(lost * 1000) / 10).toLocaleString('fr-FR') + ' %', '#d9a6ff');
+    }
+  }
+  function makeFogPuffs() {
+    return Array.from({ length: 9 }, () => ({ x: rand(-200, W + 200), y: rand(H * 0.12, H * 0.9), r: rand(140, 280), sp: rand(0.2, 0.55), ph: Math.random() * 6 }));
+  }
+
   function announceStage() {
     const st = STAGES[stage];
     announce = { txt: st.name, sub: st.sub, color: '#f6eedd', up: true, t: 0, dur: 2.6 };
@@ -1030,6 +1690,7 @@
     runTime += dt;
     if (phase === 'travel' && health >= 1) {   // paysage guéri : plus de colonnes, il refleurit
       phase = 'calm'; phaseT = 0; score += 500;
+      SND.cleared();
       announce = { txt: STAGES[stage].cleared, sub: '+500 · le paysage refleurit', color: '#9be86f', up: true, t: 0, dur: 2.6 };
       for (let i = 0; i < 26; i++) {
         const life = rand(3, 5);
@@ -1086,7 +1747,7 @@
 
   function startBoss() {
     phase = 'boss'; phaseT = 0;
-    if (!checkpoint) checkpoint = { score, time: runTime, freed: freedTotal, belly: Math.max(player.belly, BELLY_PER_PICKUP * 2) };
+    if (!checkpoint) checkpoint = { score, time: runTime, freed: freedTotal, cols: columnsHealed, belly: Math.max(player.belly, BELLY_PER_PICKUP * 2) };
     const tx = W - BOSS_R - 70;
     boss = {
       x: W + BOSS_R * 1.6, sx: W + BOSS_R * 1.6, tx, y: (H - GROUND_H) * 0.47, t: 0, enter: 0, stage: 0, rate: 1, beat: 0, beatT: 0,
@@ -1094,6 +1755,7 @@
       roots: [], seeds: [], charge: null, attackT: 2.2, dropT: 7, dying: -1, open: 0, flower: 0, lastAtk: '',
     };
     makeCurtain();
+    SND.bossEnter();
     announce = { txt: 'Le Cœur de ronce', sub: 'Crève ses 5 bulbes lumineux', color: '#ff9db5', up: true, t: 0, dur: 3 };
   }
 
@@ -1140,6 +1802,7 @@
           ? { txt: 'Le Cœur s\'énerve !', sub: 'Graines toxiques et nuées', color: '#ff9db5', up: true, t: 0, dur: 2.2 }
           : { txt: 'Le cœur est à nu !', sub: 'Crève le bulbe central', color: '#ffe27a', up: true, t: 0, dur: 2.2 };
         shakeT = 0.3;
+        SND.bossStage();
       }
       b.stage = st;
     }
@@ -1147,6 +1810,11 @@
     b.beatT += dt * b.rate;
     const u = b.beatT % 1.3;   // battement en deux temps : boum-boum
     b.beat = Math.exp(-((u / 0.07) ** 2)) + 0.6 * Math.exp(-(((u - 0.22) / 0.07) ** 2));
+    if (b.dying < 0 && b.lastU !== undefined) {   // on entend le Cœur battre : boum-boum
+      if (u < b.lastU) SND.heart(1);
+      else if (b.lastU < 0.22 && u >= 0.22) SND.heart(0.6);
+    }
+    b.lastU = u;
     if (b.stage === 3) b.open = Math.min(1, b.open + dt * 0.8);
     for (const q of b.bulbs) { q.hitT = Math.max(0, q.hitT - dt); if (!q.alive) q.bloom = Math.min(1, q.bloom + dt * 1.5); }
 
@@ -1164,9 +1832,9 @@
       else a = b.lastAtk === 'root' ? 'seeds' : 'root';
       if (a === 'root' && b.roots.length) a = 'seeds';
       if (a === 'seeds' && b.charge) a = 'root';
-      if (a === 'root') b.roots.push({ y: clamp(player.y + rand(-45, 45), 50, H - GROUND_H - 50), half: 24, t: 0, tip: b.x - BOSS_R * 0.7 });
-      else if (a === 'seeds') b.charge = { t: 0, n: b.stage === 3 ? 3 : 2 };
-      else swarms.push({ y: rand(70, H - GROUND_H - 70), warn: 0.9, n: 4 });
+      if (a === 'root') { b.roots.push({ y: clamp(player.y + rand(-45, 45), 50, H - GROUND_H - 50), half: 24, t: 0, tip: b.x - BOSS_R * 0.7 }); SND.rootWarn(); }
+      else if (a === 'seeds') { b.charge = { t: 0, n: b.stage === 3 ? 3 : 2 }; SND.seeds(b.charge.n); }
+      else { swarms.push({ y: rand(70, H - GROUND_H - 70), warn: 0.9, n: 4 }); SND.swarm(); }
       b.lastAtk = a;
       b.attackT = b.stage === 1 ? rand(2.4, 3.2) : b.stage === 2 ? rand(1.9, 2.6) : rand(1.5, 2);
     }
@@ -1231,7 +1899,7 @@
     const b = boss;
     if (!b || b.enter < 1 || b.dying >= 0) return false;
     for (const q of b.seeds) {
-      if (q.alive && touches(q.x, q.y, s.x, s.y, q.r + s.r)) { q.alive = false; burst(q.x, q.y, '#b6ff3b', 8, 'dot'); score += 5; return true; }
+      if (q.alive && touches(q.x, q.y, s.x, s.y, q.r + s.r)) { q.alive = false; burst(q.x, q.y, '#b6ff3b', 8, 'dot'); score += 5; SND.pop(q.x); return true; }
     }
     for (const r of b.roots) {
       if (r.t > ROOT_WARN && s.x > r.tip && Math.abs(s.y - r.y) < r.half) { burst(s.x, s.y, '#6e4f7a', 2, 'dot'); return true; }
@@ -1255,17 +1923,18 @@
     for (const q of b.bulbs) {
       if (!q.alive || (q.core && b.stage < 3)) continue;
       const qx = b.x + q.ox, qy = b.y + q.oy;
-      if (qx > prev - 20 && qx <= m.x && Math.abs(qy - m.y) < m.half + q.r) damageBulb(q, 25, qx, qy);
+      if (qx > prev - 20 && qx <= m.x && Math.abs(qy - m.y) < m.half + q.r) damageBulb(q, MEGA_BULB_DMG, qx, qy);
     }
   }
 
   function damageBulb(q, dmg, x, y) {
     q.hp -= dmg; q.hitT = 0.12;
     burst(x, y, '#e8ff8a', 3, 'dot');
-    if (q.hp > 0) return;
+    if (q.hp > 0) { SND.hit('bulb', x); return; }
     const b = boss, qx = b.x + q.ox, qy = b.y + q.oy;
     q.alive = false;
     score += 300;
+    SND.bulbBurst(qx);
     shakeT = 0.25;
     burst(qx, qy, '#b6ff3b', 16, 'dot');
     burst(qx, qy, '#ffc6dd', 10, 'leaf');
@@ -1299,6 +1968,7 @@
     }
     if (before < 1.8 && b.dying >= 1.8) {   // il fleurit
       flashT = 0.6;
+      SND.bloom();
       for (const c of cells) if (c.alive && c.anchor !== undefined) damageCell(c, { kind: 'sap', dmg: 99, x: c.x, y: c.y });
     }
     if (b.dying >= 1.8) {
@@ -1325,6 +1995,7 @@
       <span>Score</span><b>${score}</b>
       <span>Temps</span><b>${m} min ${String(s).padStart(2, '0')}</b>
       <span>Moustiques libérés</span><b>${freedTotal}</b>
+      <span>Colonnes guéries</span><b>${columnsHealed}</b>
       <span class="best">Record</span><b class="best">${best}</b>
     </div>`;
     ovCta.textContent = 'Tape pour un nouveau voyage';
@@ -1695,9 +2366,8 @@
     const fruit = p.kind === 'fruit', px = W * PLAYER_X_RATIO;
     const before = sapLevel();
     player.belly = Math.min(BELLY_MAX, player.belly + BELLY_PER_PICKUP * (fruit ? 2 : 1));
-    if (sapLevel() === 4) player.megaT = MEGA_TIME;   // une mûre pendant la méga-onde la recharge
     if (sapLevel() > before) announceLevel(1);
-    else if (before === 4) announceLevel(0, 'rechargée !');
+    SND.eat(sapLevel() > before ? sapLevel() : 0, fruit);
     score += fruit ? 25 : 5;
     player.gulp = 1;
     player.chew = 0.55;   // il mâchouille, les yeux fermés de contentement
@@ -1718,6 +2388,7 @@
     overTime = performance.now();
     shakeT = 0.4;
     player.alive = false;
+    SND.die();
     const px = W * PLAYER_X_RATIO;
     burst(px, player.y, '#5fd39a', 22, 'leaf');
     burst(px, player.y, '#ffffff', 8, 'dot');
@@ -1729,6 +2400,7 @@
     ovText.innerHTML = `<div class="stats">
       <span>Score</span><b>${score}</b>
       ${retryBoss ? '<span>Bulbes crevés</span><b>' + boss.bulbs.filter(q => !q.alive).length + ' / 5</b>' : '<span>Monde guéri</span><b>' + Math.round(health * 100) + ' %</b>'}
+      ${columnsHealed ? '<span>Colonnes guéries</span><b>' + columnsHealed + '</b>' : ''}
       <span class="best">Record</span><b class="best">${best}</b>
     </div>`;
     ovCta.textContent = retryBoss ? 'Tape pour retenter le Cœur' : 'Tape pour réessayer';
@@ -1745,6 +2417,7 @@
     }
   }
   function press() {
+    SND.init();   // le son ne peut démarrer qu'au premier geste du joueur
     if (state === 'menu') { start(); return; }
     if (state === 'over') { if (performance.now() - overTime > 500) start(); return; }
     held = true;
@@ -1752,15 +2425,29 @@
     player.flap = 1;
     flapTimer = 0.13;
     wingLeaves(3);
+    SND.flap(1);
   }
   function release() { held = false; }
   window.addEventListener('keydown', e => {
     if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); if (!e.repeat) press(); }
+    else if (e.code === 'KeyM' && !e.repeat) toggleSound();
+    else SND.unlock();
   });
   window.addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'ArrowUp') release(); });
   canvas.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
   overlay.addEventListener('pointerdown', e => { e.preventDefault(); press(); });
-  window.addEventListener('pointerup', release);
+  window.addEventListener('pointerup', () => { release(); SND.unlock(); });   // sur écran tactile, le son se débloque au relâcher
+  window.addEventListener('touchend', () => SND.unlock());
+  // Bouton du son (et touche M) : coupe ou remet le son, choix mémorisé
+  const soundBtn = document.getElementById('sound');
+  function showSound() {
+    soundBtn.classList.toggle('off', !SND.isOn());
+    soundBtn.setAttribute('aria-label', SND.isOn() ? 'Couper le son' : 'Remettre le son');
+  }
+  function toggleSound() { SND.toggle(); showSound(); }
+  soundBtn.addEventListener('pointerdown', e => e.stopPropagation());
+  soundBtn.addEventListener('click', e => { e.stopPropagation(); toggleSound(); soundBtn.blur(); });
+  showSound();
   window.addEventListener('pointercancel', release);
   window.addEventListener('blur', release);
 
@@ -1824,7 +2511,7 @@
           let type;
           if (nearGap) type = special === 'root' || Math.random() < 0.8 ? 'bramble' : 'stone';   // autour des racines : que des ronces
           else if (special === 'root') type = 'root';          // seuls les bords du passage restent cassables
-          else { const p = Math.random(); type = p < 0.045 ? 'pod' : p < 0.5 ? 'stone' : 'bramble'; }
+          else { const p = Math.random(); type = p < 0.06 ? 'pod' : p < 0.5 ? 'stone' : 'bramble'; }
           cell = makeCell(x, y, type, type === 'stone' ? rr * 1.08 : type === 'root' ? rr * 1.1 : rr);
         }
         if (!cell) continue;
@@ -1840,6 +2527,20 @@
       }
       prev = row;
     }
+    // La colonne sera jugée quand elle sortira de l'écran (voir judgeWall) : bord droit, en coordonnées du monde
+    grp.right = distance + Math.max(...grp.cells.map(c => c.x + c.r));
+    walls.push(grp);
+    // Pour la guérir : nombre de ronces, ronces purifiées, et sa « colonne vertébrale » (centre de chaque rangée,
+    // en coordonnées du monde) sur laquelle poussera la liane fleurie
+    grp.soft = grp.cells.filter(c => c.type === 'bramble' || c.type === 'pod' || c.type === 'berrycell').length;
+    grp.pure = 0;
+    const byRow = new Map();
+    for (const c of grp.cells) {
+      const k = Math.round((c.y - top) / ROW_H);
+      if (!byRow.has(k)) byRow.set(k, []);
+      byRow.get(k).push(c);
+    }
+    grp.spine = [...byRow.entries()].sort((a, b) => a[0] - b[0]).map(([, row]) => [distance + row.reduce((s, c) => s + c.x, 0) / row.length, row[0].y]);
     if (trapWall) {
       const rg = Math.round((gapY - top) / ROW_H);
       const gx = x0 + Math.sin(rg * 0.45 + ph) * 14 + Math.sin(rg * 1.3 + ph2) * 5;
@@ -1865,7 +2566,8 @@
   function floatText(x, y, txt, color) { texts.push({ x, y, txt, color, life: 1 }); }
 
   // Annonce des évolutions : grand bandeau au centre de l'écran, peint et encré
-  const MEGA_TIME = 8;          // durée de la méga-onde, puis retour à la grande onde
+  const MEGA_HALF = 0.25;       // demi-hauteur de la méga-onde, en fraction de l'écran (elle couvre la moitié de l'écran)
+  const MEGA_BULB_DMG = 80;     // dégâts de la méga-onde sur un bulbe du Cœur (un vrai coup, sans crever un bulbe à lui seul)
   const ANNOUNCE_TIME = 1.6;
   let announce = null;
   function announceLevel(dir, sub) {
@@ -1879,6 +2581,7 @@
     };
   }
   function announceAlly() {
+    SND.ally();
     announce = { txt: 'Moustique libéré !', sub: 'Il est guéri de la corruption et t\'aide à tirer', color: '#bff5e4', up: true, t: 0 };
   }
   function drawAnnounce() {
@@ -1922,7 +2625,7 @@
     { name: 'Nervuré', wave: 'Sève ×2', shots: [[0, -7, 7.5], [0, 7, 7.5]], dmg: 4, pierce: 2, speed: 1.2, cool: 0.9 },
     // Grande onde : une seule onde, trois fois plus haute, qui traverse 3 touffes
     { name: 'Couronné', wave: 'Grande onde', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
-    // Méga-onde : la grande onde, plus toutes les ~1 s une onde géante (concentration puis libération)
+    // Forme d'esprit : la grande onde, et une seule méga-onde géante (concentration puis libération), puis retour à Couronné
     { name: 'Esprit', wave: 'Méga-onde', shots: [[0, 0, 14]], dmg: 4, pierce: 3, speed: 1.1, cool: 1 },
   ];
   // Pas de baisse avec le temps : chaque mûre fait monter d'un niveau, chaque choc fait perdre un niveau.
@@ -1932,7 +2635,9 @@
   // Méga-onde : Gloub concentre la sève puis libère une onde géante qui balaie l'écran
   // (tout ce qui est cassable sur sa hauteur ; elle passe à travers les racines sans les briser)
   function fireBeam(px) {
-    megas.push({ x: px + PLAYER_R, y: player.y, half: 85, t: 0 });
+    megas.push({ x: px + PLAYER_R, y: player.y, half: H * MEGA_HALF, t: 0 });
+    floatText(px + 40, player.y - 50, 'Méga-onde !', '#ffe27a');
+    SND.megaFire();
     shakeT = Math.max(shakeT, 0.3);
     flashT = 0.25;
     player.gulp = 1;
@@ -1963,12 +2668,13 @@
     }
     if (!player.chew) player.mouth = 1;
     shootTimer = SHOOT_COOLDOWN * L.cool;
+    SND.shot(lvl);
   }
 
   function damageCell(t, s) {
     t.hp -= s.dmg;
     burst(s.x, s.y, s.kind === 'sap' ? '#e8ff8a' : t.type === 'stone' ? '#c9bfae' : '#d2f0ff', 3, 'dot');
-    if (t.hp > 0) return;
+    if (t.hp > 0) { SND.hit(t.type, s.x); return; }
     t.alive = false;
     const cx = t.x, cy = t.y;
     if (t.type === 'berrycell') {   // la mûre est libérée et file vers la bouche de Gloub
@@ -1983,6 +2689,10 @@
       if (s.kind === 'sap') {
         // Purifiée : une fleur saine prend sa place
         score += 25; health = Math.min(1, health + HEAL_SAP);
+        if (!quietPurify) SND.purify(cx);   // une note de kalimba, dans la gamme du moment
+        countPure(t);
+        healFront(cx, 60, 0.34);
+        if (cy > H - GROUND_H - ROW_H * 6) addGroundHeal(cx - 32, cx + 32);   // le pied de la colonne : la haie refleurit dessous
         flowers.push({ x: cx, y: cy, t: 0, seed: Math.random(), color: pick(['#ff8fb8', '#ffd166', '#ffffff', '#c9a0ff']) });
         for (let i = 0; i < 2; i++) {
           const life = rand(3, 5);
@@ -1994,15 +2704,29 @@
         // Simplement arrachée
         score += 10; health = Math.min(1, health + HEAL_SALIVA);
         burst(cx, cy, '#6e4f7a', 10, 'leaf');
+        SND.snap(cx);
       }
     } else if (t.type === 'stone') {
       score += 15;
       burst(cx, cy, '#a89e8e', 12, 'dot');
+      SND.crack(cx);
       burst(cx, cy, '#7d9a55', 5, 'leaf');
     } else if (t.type === 'pod') {
-      score += 5;
+      // Le poison concentré éclate : forte guérison, et une onde de sève purifie les ronces voisines
+      score += 50; health = Math.min(1, health + HEAL_POD);
+      SND.pod(cx);
+      countPure(t);
       pickups.push(makeBerry(cx, cy));   // le bulbe était un fruit enfoui : une mûre s'en libère
-      burst(cx, cy, '#b6ff3b', 12, 'dot');
+      burst(cx, cy, '#b6ff3b', 16, 'dot');
+      burst(cx, cy, '#ffffff', 6, 'dot');
+      floatText(cx, cy - 28, '+' + (HEAL_POD * 100).toLocaleString('fr-FR') + ' %', '#d8ff6a');
+      rings.push({ x: cx, y: cy, t: 0, R: POD_WAVE_R });
+      shakeT = Math.max(shakeT, 0.12);
+      healFront(cx, 140, 1);
+      addGroundHeal(cx - 70, cx + 70);
+      for (const c of cells) {
+        if (c.alive && (c.type === 'bramble' || c.type === 'pod') && touches(c.x, c.y, cx, cy, POD_WAVE_R)) damageCell(c, { kind: 'sap', dmg: 99, x: c.x, y: c.y });
+      }
     }
   }
 
@@ -2025,8 +2749,15 @@
     props.sort((a, b) => a.s - b.s);
     const foreSpan = (W + 200) / FORE_S;
     for (const f of fore) {
-      if (screenX(f.X, FORE_S) < -100) { f.X += foreSpan; f.h = rand(28, 64); f.seed = Math.random(); }
+      if (screenX(f.X, FORE_S) < -100) { f.X += foreSpan; f.h = rand(28, 64); f.seed = Math.random(); f.pure = 0; f.hl = 0; }
     }
+    updateFrontHeal(dt);
+    // Bancs de brouillard qui dérivent, ondes des bulbes crevés, pulsation de la pollution qui gagne
+    for (const fp of fogPuffs) {
+      fp.x -= ((state === 'play' ? speed : 60) * fp.sp + 8) * dt;
+      if (fp.x + fp.r < -40) { fp.x = W + fp.r + rand(0, 200); fp.y = rand(H * 0.12, H * 0.9); }
+    }
+    pollutePulse = Math.max(0, pollutePulse - dt * 0.9);
 
     // Vent et petits esprits
     for (const w of winds) {
@@ -2070,7 +2801,7 @@
       player.y += player.vy * dt;
       player.tilt = clamp(player.vy / 600, -0.5, 0.8);
       player.flap = Math.max(0, player.flap - dt * 7);
-      if (held && (flapTimer -= dt) <= 0) { player.flap = 1; flapTimer = 0.16 - 0.07 * (holdT / RAMP_TIME); wingLeaves(1); }   // les ailes battent de plus en plus vite
+      if (held && (flapTimer -= dt) <= 0) { player.flap = 1; flapTimer = 0.16 - 0.07 * (holdT / RAMP_TIME); wingLeaves(1); SND.flap(0.5); }   // les ailes battent de plus en plus vite
       player.mouth = Math.max(0, player.mouth - dt * 10);
       player.gulp = Math.max(0, player.gulp - dt * 2.2);
       if (!pickups.some(q => q.eating !== undefined)) player.wide = Math.max(0, player.wide - dt * 6);
@@ -2078,9 +2809,14 @@
       if (player.chew > 0) player.mouth = Math.abs(Math.sin(player.chew * Math.PI * 5.5));   // crounch crounch
       if (player.y - PLAYER_R < 0) { player.y = PLAYER_R; player.vy = 0; }
       player.inv = Math.max(0, player.inv - dt);
-      if (player.y + PLAYER_R * 0.8 > H - GROUND_H) {   // les ronces du sol : choc, puis rebond
-        hurt(px);
-        if (state === 'play') { player.y = H - GROUND_H - PLAYER_R * 0.8; player.vy = RISE_MIN - 80; }
+      if (player.y + PLAYER_R * 0.8 > H - GROUND_H) {
+        if (groundHealed(distance + px)) {   // haie guérie : de la mousse, Gloub rebondit sans se piquer
+          player.y = H - GROUND_H - PLAYER_R * 0.8; player.vy = RISE_MIN - 40;
+          burst(px, H - GROUND_H, pick(['#7be07b', '#bff5a0']), 3, 'leaf');
+        } else {                             // les ronces du sol : choc, puis rebond
+          hurt(px);
+          if (state === 'play') { player.y = H - GROUND_H - PLAYER_R * 0.8; player.vy = RISE_MIN - 80; }
+        }
       }
 
       // Pièges : collision selon leur état
@@ -2103,13 +2839,12 @@
       updateLook(dt);
       shootTimer -= dt;
       if (shootTimer <= 0) spit(px);
-      if (sapLevel() === 4) {   // la méga-onde est temporaire
-        player.megaT -= dt;
-        if (player.megaT <= 0) { player.belly = BELLY_PER_PICKUP * 3; player.megaT = 0; player.charge = 0; announceLevel(-1, 'L\'esprit se rendort'); }
-      }
-      if (sapLevel() === 4) {   // le rayon se charge, puis part tout droit
+      // Forme d'esprit : Gloub concentre la sève, libère une seule méga-onde géante, puis redescend à la grande onde
+      // (il faut une nouvelle mûre pour la recharger)
+      if (sapLevel() === 4) {
+        if (player.charge === 0) SND.megaCharge();
         player.charge += dt;
-        if (player.charge >= BEAM_CHARGE) { fireBeam(px); player.charge = 0; }
+        if (player.charge >= BEAM_CHARGE) { fireBeam(px); player.charge = 0; player.belly = BELLY_PER_PICKUP * 3; }
       } else player.charge = 0;
 
       if (phase === 'travel') {
@@ -2153,6 +2888,15 @@
       }
     }
     for (const f of flowers) { f.x -= ws * dt; f.t += dt; }
+    for (const r of rings) { r.x -= ws * dt; r.t += dt; }
+    updateCascade();
+    for (const L of lianes) L.t += dt;
+    lianes = lianes.filter(L => L.segs.some(s => s.some(([X]) => X - distance > -80)));
+    for (const g of glows) { g.x -= ws * 0.8 * dt; g.t += dt; }
+    glows = glows.filter(g => g.t < 0.7);
+    rings = rings.filter(r => r.t < 0.5);
+    for (const g of walls) if (g.right - distance < -30) { g.done = true; judgeWall(g); }
+    if (walls.some(g => g.done)) walls = walls.filter(g => !g.done);
 
     // Crachats
     for (const s of spits) {
@@ -2504,9 +3248,24 @@
         if (x > W + 120 || x + it.w < -120) continue;
         // Simple copie d'image, sans rotation ni arrondi au pixel (l'arrondi faisait avancer les plans lointains par à-coups)
         const xc = x + it.w / 2;
-        drawMixed(it, xc, groundY(L.speed, xc), LOOK[L.key]);
+        drawMixed(it, xc, groundY(L.speed, xc), it.hl ? Math.max(LOOK[L.key], it.hl) : LOOK[L.key]);   // un buisson purifié reste guéri
+        if (it.hl > 0 && L.key === 'near') bloomQueue.push([it, xc, groundY(L.speed, xc)]);   // fleurs peintes après le brouillard
       }
     }
+  }
+
+  // Buisson purifié : une couronne de fleurs qui s'ouvrent et se balancent sur le dessus
+  const BLOOM_COLORS = ['#ff8fb8', '#ffd166', '#ffffff', '#c9a0ff', '#ffc6dd'], bloomQueue = [];
+  function bushBlooms(it, xc, gy) {
+    const R = rng(it.seed * 0.37 + 0.11), n = 7 + ((R() * 4) | 0), rs = VS * PR, k = it.hl;
+    for (let i = 0; i < n; i++) {
+      const u = R() - 0.5, x = xc + u * it.w * 0.8, y = gy - it.h * (0.55 + (0.5 - Math.abs(u)) * 0.7) - R() * it.h * 0.25;
+      const sz = (12 + R() * 6) * k, sway = Math.sin(time * 2 + i + it.seed * 6) * 1.5;
+      ctx.drawImage(flowerSprite(BLOOM_COLORS[i % BLOOM_COLORS.length], rs), x - sz / 2 + sway, y - sz / 2, sz, sz);
+    }
+  }
+  function drawGlows() {
+    for (const g of glows) glow(g.x, g.y, g.r * (0.6 + g.t), '255,240,190', 0.9 * (1 - g.t / 0.7));
   }
 
   // Objets du sol : peints une fois à leur taille (malade / guéri), puis simplement recopiés
@@ -2589,34 +3348,101 @@
   function drawProp(p) {
     const x = screenX(p.X, p.s);
     if (x < -200 || x > W + 200) return;
-    drawMixed(p, x, groundY(p.s, x), p.s < 0.6 ? LOOK.mid : LOOK.near);   // les objets lointains guérissent avec la ville
+    drawMixed(p, x, groundY(p.s, x), p.s < 0.6 ? LOOK.mid : Math.max(LOOK.near, p.hl || 0));   // les objets lointains guérissent avec la ville
   }
   function drawProps(min, max) {
     for (const p of props) if (p.s >= min && p.s < max) drawProp(p);
   }
 
-  // Brume de pollution qui se dissipe avec la guérison
+  // Brume de pollution qui se dissipe avec la guérison.
+  // Au départ, un brouillard épais noie tout le décor (voile + bancs qui dérivent) ; il est peint derrière les
+  // colonnes, pour que le jeu reste lisible. Le voile de devant (drawFrontFog) ne touche que les bords.
+  const FOG_RGB = [116, 98, 92], FOG_PUFF = '132,112,104';
   function drawHaze() {
-    if (lite) return;
-    ctx.fillStyle = rgb([110, 92, 70], LOOK.smog * 0.16 + (1 - LOOK.mid) * 0.06);
+    const f = LOOK.fog;
+    if (!lite) {
+      ctx.fillStyle = rgb([110, 92, 70], LOOK.smog * 0.16 + (1 - LOOK.mid) * 0.06);
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (f < 0.01) return;
+    ctx.fillStyle = rgb(FOG_RGB, f * 0.42);
     ctx.fillRect(0, 0, W, H);
+    if (!lite) for (const fp of fogPuffs) glow(fp.x, fp.y + Math.sin(time * 0.3 + fp.ph) * 12, fp.r, FOG_PUFF, f * 0.6);
+  }
+
+  // Voile de devant, peint dans une petite image étirée (le brouillard est flou par nature) :
+  // épais en haut et en bas, léger au milieu du couloir de jeu, et une bulle d'air clair autour de Gloub,
+  // qui purifie l'air sur son passage. Quand une colonne passe sans être purifiée, le bord gauche pulse en violet.
+  const frontFog = { cv: document.createElement('canvas') };
+  function drawFrontFog() {
+    const f = LOOK.fog, pp = pollutePulse;
+    if (f < 0.01 && pp < 0.01) return;
+    const cw = 96, ch = Math.max(2, Math.round(cw * H / W)), c = frontFog.cv, k = cw / W;
+    if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; }
+    const g = c.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, cw, ch);
+    if (f >= 0.01) {
+      const lg = g.createLinearGradient(0, 0, 0, ch);
+      lg.addColorStop(0, rgb(FOG_RGB, f * 0.72)); lg.addColorStop(0.26, rgb(FOG_RGB, f * 0.16));
+      lg.addColorStop(0.74, rgb(FOG_RGB, f * 0.16)); lg.addColorStop(1, rgb(FOG_RGB, f * 0.6));
+      g.fillStyle = lg; g.fillRect(0, 0, cw, ch);
+      const sg = g.createLinearGradient(0, 0, cw, 0);   // le bord gauche, d'où l'on vient, reste noyé
+      sg.addColorStop(0, rgb(FOG_RGB, f * 0.4)); sg.addColorStop(0.12, rgb(FOG_RGB, 0));
+      g.fillStyle = sg; g.fillRect(0, 0, cw, ch);
+      // la bulle d'air clair autour de Gloub
+      const bx = W * PLAYER_X_RATIO * k, by = player.y * k, br = (95 + 10 * Math.sin(time * 2)) * k;
+      const hole = g.createRadialGradient(bx, by, 0, bx, by, br);
+      hole.addColorStop(0, 'rgba(0,0,0,1)'); hole.addColorStop(0.55, 'rgba(0,0,0,0.85)'); hole.addColorStop(1, 'rgba(0,0,0,0)');
+      g.globalCompositeOperation = 'destination-out';
+      g.fillStyle = hole; g.fillRect(0, 0, cw, ch);
+      g.globalCompositeOperation = 'source-over';
+    }
+    if (pp >= 0.01) {
+      const pg = g.createLinearGradient(0, 0, cw * 0.3, 0);
+      pg.addColorStop(0, `rgba(120,60,140,${0.55 * pp})`); pg.addColorStop(1, 'rgba(120,60,140,0)');
+      g.fillStyle = pg; g.fillRect(0, 0, cw, ch);
+    }
+    ctx.drawImage(c, 0, 0, W, H);
+  }
+
+  // Onde d'un bulbe toxique crevé
+  function drawRings() {
+    for (const r of rings) {
+      const u = r.t / 0.5, e = 1 - (1 - u) ** 3, R = r.R * (0.25 + 0.75 * e);
+      ctx.strokeStyle = `rgba(216,255,106,${0.85 * (1 - u)})`; ctx.lineWidth = 2 + 7 * (1 - u);
+      ctx.beginPath(); ctx.arc(r.x, r.y, R, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = `rgba(255,255,230,${0.18 * (1 - u)})`;
+      ctx.beginPath(); ctx.arc(r.x, r.y, R, 0, Math.PI * 2); ctx.fill();
+    }
   }
 
   // Hautes herbes au premier plan
+  // Une touffe purifiée (hl) reverdit et porte une petite fleur au bout de sa plus haute tige
   function drawForeground() {
-    ctx.fillStyle = rgb(mix(col('near'), [10, 8, 12], 0.55), 0.9);
+    const sickC = mix(col('near'), [10, 8, 12], 0.55), healC = mix(HEAL.near, [10, 8, 12], 0.3);
     for (const f of fore) {
       const x = screenX(f.X, FORE_S);
       if (x < -100 || x > W + 100) continue;
+      const hl = Math.max(LOOK.near, f.hl || 0);
+      ctx.fillStyle = rgb(hl > 0 ? mix(sickC, healC, hl) : sickC, 0.9);
+      const tips = [];
       for (let b = 0; b < 5; b++) {
         const bx = x + (b - 2) * 9;
-        const bh = f.h * (0.6 + 0.4 * Math.sin(f.seed * 10 + b * 1.7) ** 2);
+        const bh = f.h * (0.6 + 0.4 * Math.sin(f.seed * 10 + b * 1.7) ** 2) * (1 + 0.25 * (f.hl || 0));   // l'herbe guérie se redresse
         const lean = Math.sin(time * 1.5 + f.seed * 6 + b) * 7 + (b - 2) * 3 - 4;
         ctx.beginPath();
         ctx.moveTo(bx - 4, H);
         ctx.quadraticCurveTo(bx + lean * 0.5, H - bh * 0.6, bx + lean, H - bh);
         ctx.quadraticCurveTo(bx + lean * 0.4 + 3, H - bh * 0.5, bx + 4, H);
         ctx.closePath(); ctx.fill();
+        tips.push([bx + lean, H - bh]);
+      }
+      if ((f.hl || 0) > 0.2) {   // une fleur au bout de chaque brin
+        const k = Math.min(1, (f.hl - 0.2) / 0.5), rs = VS * PR;
+        tips.forEach(([tx, ty], i) => {
+          const sz = (12 + ((f.seed * 7 + i) % 1) * 6) * k;
+          ctx.drawImage(flowerSprite(BLOOM_COLORS[(i + ((f.seed * 10) | 0)) % BLOOM_COLORS.length], rs), tx - sz / 2, ty - sz / 2, sz, sz);
+        });
       }
     }
   }
@@ -2643,21 +3469,30 @@
   // Elle ne change jamais : on la peint d'avance dans une longue bande (refaite quand on arrive au bout,
   // toutes les quelques secondes) au lieu de redessiner sa centaine de touffes à chaque image.
   const groundStrip = { cv: document.createElement('canvas'), x0: 0, x1: -1, y0: 0, rs: 0, h: 0 };
+  // Les tronçons guéris (groundHeal) sont peints en mousse fleurie, sans épines : Gloub peut y rebondir sans se piquer.
+  const MOSS_DARK = '#25432b', MOSS_MID = '#4c8a4a', MOSS_LIGHT = 'rgba(190,240,150,0.5)';
   function paintGround(g, x0, x1, base) {
     const sp = 16;
     const hash = (k, a, b) => { const h = Math.sin(k * a) * b; return h - Math.floor(h); };  // hasard stable, attaché au monde
-    const list = [], top = [];
+    const list = [], top = [], moss = [], bloomDots = [];
     for (let k = Math.floor(x0 / sp) - 2; k * sp < x1 + sp * 2; k++) {
       const rnd = hash(k, 12.9898, 43758.5453), rnd2 = hash(k, 78.233, 12543.123);
       const x = k * sp, y = base + 7 + rnd * 7, r = 11 + rnd2 * 11;
-      list.push([x, y, r]);
-      if (rnd > 0.55) list.push([x + 7, y - r * 0.55, r * 0.55]);
-      top.push([x, y - r * 0.75, k]);
+      const healed = groundHealed(x);
+      const dst = healed ? moss : list;
+      dst.push([x, y, r]);
+      if (rnd > 0.55) dst.push([x + 7, y - r * 0.55, r * 0.55]);
+      if (healed) { if (rnd2 > 0.35) bloomDots.push([x + rnd * 8 - 4, y - r * 0.75, rnd2 > 0.7 ? 1 : 0]); }
+      top.push([x, y - r * 0.75, k, healed]);
     }
     g.fillStyle = '#24172a';
     g.fillRect(x0, base + 8, x1 - x0, GROUND_H);
+    for (const [a, b] of groundHeal) {   // sous la mousse, le sol aussi est sain
+      if (b < x0 || a > x1) continue;
+      g.fillStyle = '#1d3322'; g.fillRect(Math.max(a, x0), base + 8, Math.min(b, x1) - Math.max(a, x0), GROUND_H);
+    }
     g.fillStyle = 'rgba(30,18,36,0.5)';
-    blobsOn(g, list.map(([x, y, r]) => [x - 3, y + 5, r]));
+    blobsOn(g, [...list, ...moss].map(([x, y, r]) => [x - 3, y + 5, r]));
     // Épines de silhouette
     g.fillStyle = '#2e1d34';
     g.beginPath();
@@ -2667,31 +3502,46 @@
     g.fillStyle = BR_DARK; blobsOn(g, list);
     g.fillStyle = BR_MID; blobsOn(g, list.map(([x, y, r]) => [x + r * 0.18, y - r * 0.22, r * 0.72 * 0.9]));
     g.fillStyle = BR_LIGHT; blobsOn(g, list.map(([x, y, r]) => [x + r * 0.35, y - r * 0.42, r * 0.32 * 0.9]));
-    // Tige épineuse qui serpente sur la haie
+    if (moss.length) {   // mousse guérie : même silhouette, en vert, piquée de petites fleurs
+      g.fillStyle = MOSS_DARK; blobsOn(g, moss);
+      g.fillStyle = MOSS_MID; blobsOn(g, moss.map(([x, y, r]) => [x + r * 0.18, y - r * 0.22, r * 0.72 * 0.9]));
+      g.fillStyle = MOSS_LIGHT; blobsOn(g, moss.map(([x, y, r]) => [x + r * 0.35, y - r * 0.42, r * 0.32 * 0.9]));
+      for (const [c, kind] of [['#ffc6dd', 0], ['#fff1a8', 1]]) {
+        g.fillStyle = c;
+        blobsOn(g, bloomDots.filter(d => d[2] === kind).flatMap(([x, y]) => [[x - 2, y, 2], [x + 2, y, 2], [x, y - 2, 2], [x, y + 2, 2]]));
+      }
+      g.fillStyle = '#ffe066'; blobsOn(g, bloomDots.map(([x, y]) => [x, y, 1.4]));
+    }
+    // Tige épineuse qui serpente sur la haie (interrompue là où la haie est guérie)
     for (const [w, color] of [[4, '#24162a'], [2, '#8a6094']]) {
       g.strokeStyle = color; g.lineWidth = w; g.lineCap = 'round';
       g.beginPath();
-      top.forEach(([x, y, k], i) => {
-        if (i === 0) { g.moveTo(x, y); return; }
-        const [px, py] = top[i - 1];
+      top.forEach(([x, y, k, healed], i) => {
+        const prev = top[i - 1];
+        if (healed) return;
+        if (!prev || prev[3]) { g.moveTo(x, y); return; }
+        const [px, py] = prev;
         g.quadraticCurveTo(px + sp * 0.5, (py + y) / 2 + (k % 2 ? -6 : 6), x, y);
       });
       g.stroke();
     }
     g.fillStyle = THORN;
     g.beginPath();
-    for (const [x, y, k] of top) { const sd = k % 2 ? -1 : 1; g.moveTo(x - 2.5, y); g.lineTo(x + 1, y + sd * 6); g.lineTo(x + 2.5, y); g.closePath(); }
+    for (const [x, y, k, healed] of top) { if (healed) continue; const sd = k % 2 ? -1 : 1; g.moveTo(x - 2.5, y); g.lineTo(x + 1, y + sd * 6); g.lineTo(x + 2.5, y); g.closePath(); }
     g.fill();
   }
   function drawGround() {
     const base = H - GROUND_H, rs = VS * PR, gs = groundStrip;
-    if (distance < gs.x0 || distance + W > gs.x1 || gs.rs !== rs || gs.h !== H) {
+    // Repeinte quand on arrive au bout de la bande, ou quand un tronçon vient de guérir (au plus 5 fois par seconde)
+    const healNow = groundDirty && time - (gs.at || 0) > 0.2;
+    if (healNow || distance < gs.x0 || distance + W > gs.x1 || gs.rs !== rs || gs.h !== H) {
       const x0 = Math.floor(distance) - 8, x1 = x0 + Math.ceil(W) + 1200, y0 = base - 40;
       gs.cv.width = Math.ceil((x1 - x0) * rs); gs.cv.height = Math.ceil((H - y0) * rs);
       const g = gs.cv.getContext('2d');
       g.setTransform(rs, 0, 0, rs, -x0 * rs, -y0 * rs);
       paintGround(g, x0, x1, base);
-      Object.assign(gs, { x0, x1, y0, rs, h: H });
+      Object.assign(gs, { x0, x1, y0, rs, h: H, at: time });
+      groundDirty = false;
     }
     ctx.drawImage(gs.cv, gs.x0 - distance, gs.y0, gs.x1 - gs.x0, H - gs.y0);
   }
@@ -3265,6 +4115,11 @@
       if (c.type === 'pod' || c.type === 'berrycell') wallAnim.push(c);
     }
     for (const grp of wallGroups) {
+      // Presque guérie (à partir de 50 %) : la colonne s'illumine doucement, pour donner envie de la finir
+      if (grp.soft && !grp.healed && grp.pure >= grp.soft * 0.5) {
+        const k = clamp((grp.pure / grp.soft - 0.5) / (COLUMN_HEAL_AT - 0.5), 0, 1) * (0.75 + 0.25 * Math.sin(time * 5));
+        for (let i = 1; i < grp.spine.length; i += 2) glow(grp.spine[i][0] - distance, grp.spine[i][1], 58, '210,255,160', 0.85 * k);
+      }
       wallLive.length = 0; let hp = 0;
       for (const c of grp.cells) if (c.alive) { wallLive.push(c); hp += c.hp; }
       if (!grp.cv || grp.n !== wallLive.length || grp.hp !== hp || grp.rs !== rs) {
@@ -3992,6 +4847,8 @@
     ctx.lineWidth = 4;
     for (const t of texts) {
       ctx.globalAlpha = clamp(t.life * 1.5, 0, 1);
+      ctx.font = t.big ? '800 28px Nunito, system-ui, sans-serif' : '800 20px Nunito, system-ui, sans-serif';
+      ctx.lineWidth = t.big ? 5 : 4;
       ctx.strokeStyle = 'rgba(0,0,0,.55)';
       ctx.strokeText(t.txt, t.x, t.y);
       ctx.fillStyle = t.color;
@@ -4037,8 +4894,8 @@
     ctx.font = '800 12px Nunito, system-ui, sans-serif';
     ctx.textAlign = 'left';
     label(LEVELS[lvl].name + ' · ' + LEVELS[lvl].wave, bx, by + 15, lvl ? '#fff1a8' : '#d9c9de');
-    if (lvl === 4) {   // temps restant de méga-onde
-      const m = Math.max(0, player.megaT / MEGA_TIME), blink = player.megaT < 2 && Math.sin(time * 18) > 0;
+    if (lvl === 4) {   // la méga-onde se charge
+      const m = Math.min(1, player.charge / BEAM_CHARGE), blink = m > 0.8 && Math.sin(time * 30) > 0;
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(bx, by + 31, bw, 5);
       ctx.fillStyle = blink ? '#fff' : '#ffe27a'; ctx.fillRect(bx, by + 31, bw * m, 5);
     }
@@ -4084,13 +4941,18 @@
     drawLayer(layers[2]);
     drawProps(0.6, 2);
     drawHaze();
+    for (const [it, xc, gy] of bloomQueue) bushBlooms(it, xc, gy);   // les fleurs percent le brouillard
+    bloomQueue.length = 0;
+    drawGlows();
     drawBloomWave();
     drawMotes();
     drawWinds();
     for (const f of flowers) drawFlower(f);
     drawSpirits();   // aigrettes de pissenlit des ronces purifiées : elles s'envolent derrière les colonnes
     drawBoss();
+    drawLianes();
     drawWalls();
+    drawRings();
     for (const p of pickups) drawPickup(p);
     drawTraps();
     drawBugs();
@@ -4101,6 +4963,7 @@
     for (const a of allies) drawAlly(a);
     if (player.alive && !(player.inv > 0 && Math.floor(time * 14) % 2)) drawGloub();
     drawParticles();
+    drawFrontFog();
     drawGround();
     drawForeground();
     drawTexts();
@@ -4135,6 +4998,7 @@
     lastTime = t;
     watchPerf(raw);
     update(dt);
+    SND.tick(dt);
     render();
     requestAnimationFrame(loop);
   }
@@ -4142,7 +5006,7 @@
 
   // Lecture seule, pour les tests
   window.__boss = () => boss && { x: Math.round(boss.x), stage: boss.stage, enter: +boss.enter.toFixed(2), dying: +boss.dying.toFixed(2), bulbs: boss.bulbs.map(q => q.alive ? Math.round(q.hp) : 0), roots: boss.roots.length, seeds: boss.seeds.length, phase, health: +health.toFixed(2) };
-  window.__gloub = () => ({ state, score, health, belly: player.belly, y: player.y, vy: player.vy, H, cells: cells.length, flowers: flowers.length });
+  window.__gloub = () => ({ state, score, health, fog: +LOOK.fog.toFixed(2), groundHeal: groundHeal.length, walls: walls.length, belly: player.belly, y: player.y, vy: player.vy, H, cells: cells.length, flowers: flowers.length });
 })();
 </script>
 <script>

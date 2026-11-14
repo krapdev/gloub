@@ -40,13 +40,36 @@ Le monde ne guérit pas en glissant imperceptiblement : il change par **paliers*
 
 | Palier | Ce qui se libère |
 | --- | --- |
-| 0 % | Smog brun-violet qui monte de l'horizon, cheminées d'usine qui crachent leur fumée, soleil terne. |
-| 25 % — « Le smog se dissipe » | La fumée s'arrête, le smog et la brume s'en vont, le soleil perce. |
+| 0 % | Brouillard de pollution épais, smog brun-violet qui monte de l'horizon, cheminées d'usine qui crachent leur fumée, soleil terne. |
+| 25 % — « Le smog se dissipe » | La fumée s'arrête, le brouillard se lève, le smog et la brume s'en vont, le soleil perce. |
 | 50 % — « Le ciel revient » | Ciel bleu à trois tons, nuages blancs, rayons de soleil, vols d'oiseaux ; les tours lointaines reverdissent. |
 | 75 % — « La ville reverdit » | Les ruines, les grands arbres, le sol et les objets lointains. |
 | 100 % — « La forêt respire ! » | Les buissons et tout le premier plan. |
 
 Entre deux paliers, chaque partie du décor est soit malade, soit guérie : pas d'état intermédiaire boueux.
+
+## Le brouillard de pollution
+
+La partie commence dans un **brouillard brun-violet** qui noie le décor.
+
+- **Derrière les colonnes**, un voile et de gros bancs de brouillard qui dérivent couvrent tout le décor.
+- **Devant le jeu**, le voile est épais en haut, en bas et sur le bord gauche, mais **léger au milieu du couloir** : les colonnes, les bonus et les attaques restent lisibles.
+- **Une bulle d'air clair entoure Gloub** : il purifie l'air sur son passage (elle se voit aussi sur l'écran titre).
+- Il **s'éclaircit** à mesure que la jauge monte (jusqu'à environ la moitié à 24 %) et **se lève** au palier des 25 %.
+- Ensuite, il reste un **voile léger** qui s'épaissit de nouveau quand la ronce regagne du terrain, et disparaît à 100 %.
+- En mode allégé (petits appareils lents), seul le voile reste, sans les bancs qui dérivent.
+
+## Le premier plan garde la trace du joueur
+
+Les paliers changent le monde de loin ; le premier plan, lui, réagit **tout de suite** à ce que fait Gloub.
+
+- **Buissons, objets du sol et hautes herbes** : chaque ronce purifiée à la sève les nourrit (environ 3 ronces proches pour un buisson, 2 pour un objet ou une touffe d'herbe) ; un bulbe crevé les guérit d'un coup sur une large zone. L'élément bascule alors d'un coup en version guérie, dans une **gerbe de pétales**, un halo de lumière et deux aigrettes.
+- **Ce qui a refleuri se voit** : les buissons guéris se couvrent d'une couronne de fleurs qui se balancent, peintes par-dessus le brouillard ; les hautes herbes se redressent, reverdissent et portent une fleur au bout de chaque brin.
+- **La terre qui arrive reste malade** : un buisson guéri qui sort par la gauche redevient malade avant de revenir à droite.
+- **La haie du sol** : purifier le **bas d'une colonne** (les six rangées du bas) ou crever un bulbe la fait refleurir en **mousse verte fleurie**, sans épines ni tige épineuse, jusqu'à ce qu'elle sorte de l'écran.
+- **L'onde d'un bulbe** : un anneau vert acide qui s'élargit en blanchissant.
+- **La colonne en fleurs** : une colonne guérie fleurit de bas en haut (les rochers s'effritent en mousse et en pétales) ; une **liane fleurie** (tige vert foncé et vert clair, feuilles, fleurs qui se balancent) pousse à sa place en 0,9 s, avec deux bouquets lumineux aux bords du passage. Avant cela, une colonne purifiée à plus de 50 % s'entoure d'un halo vert qui pulse.
+- **La pollution qui gagne** : quand une colonne sort sans être purifiée, le bord gauche de l'écran pulse en violet et la perte s'affiche (« −0,8 % »).
 
 ## Un seul langage pour la maladie
 
